@@ -263,7 +263,7 @@ class AgentsProtocol {
 	/**
 	 * Resolve the OpenRouter API key.
 	 *
-	 * Priority: constant → env → settings.
+	 * Priority: constant → env → WordPress Connectors (core).
 	 */
 	public static function resolve_api_key( object $agent ): string {
 		if ( defined( 'OPENROUTER_API_KEY' ) && OPENROUTER_API_KEY !== '' ) {
@@ -275,7 +275,8 @@ class AgentsProtocol {
 			return $env_key;
 		}
 
-		return dot_agents_press()->settings()->get( 'openrouter_api_key', '' );
+		// WordPress Connectors API (core) — stored at Settings → Connectors.
+		return get_option( 'connectors_ai_openrouter_api_key', '' );
 	}
 
 	// -------------------------------------------------------------------------
