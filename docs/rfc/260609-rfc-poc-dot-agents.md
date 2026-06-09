@@ -403,7 +403,27 @@ add_action( 'wp_loaded', function () {
 ## 9. Критерии готовности
 
 - [ ] Отправка сообщения в Telegram бот → получение ответа от AI
-- [ ] Системный промпт читается из `../.agents/agent.md` (если файл существует)
-- [ ] Если файла нет — используется `system_prompt` из БД
-- [ ] Webhook успешно устанавливается через WP-CLI
+- [ ] Системный промпт читается из `../.agents/system-prompt.md` + `../.agents/agents.md` (если файлы существуют)
+- [ ] Если файлов нет — используется `system_prompt` из БД
+- [ ] Webhook успешно устанавливается через WP-CLI (`wp dap telegram set-webhook`)
 - [ ] Код проходит проверку на безопасность (sanitize/escape)
+- [x] Кодовая база реализована (PoC implementation done)
+
+---
+
+## 10. Результаты реализации (2026-06-09)
+
+| # | Файл | Действие |
+|---|------|----------|
+| 1 | `app/AgentsProtocol.php` | **NEW** — поиск и чтение `.agents/system-prompt.md` + `.agents/agents.md` + `../AGENTS.md` |
+| 2 | `app/TelegramBridge.php` | **NEW** — webhook handler + sendMessage + webhook management |
+| 3 | `app/Settings.php` | **MODIFIED** — поля: telegram_bot_token, telegram_authorized_user_id, webhook_secret, default_agent_id; default model → deepseek-v4-pro |
+| 4 | `includes/class-api.php` | **MODIFIED** — `handle_chat()` вызывает `AgentsProtocol::build_system_prompt()` |
+| 5 | `includes/class-dot-agents-press.php` | **MODIFIED** — загрузка TelegramBridge, AgentsProtocol, WP-CLI команды |
+
+**WP-CLI команды:**
+```
+wp dap telegram set-webhook     # Установить webhook
+wp dap telegram delete-webhook  # Удалить webhook
+wp dap telegram status          # Информация о webhook
+```
