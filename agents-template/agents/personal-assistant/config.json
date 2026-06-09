@@ -1,0 +1,25 @@
+{
+  "toolConfig": {
+    "enabledBuiltinTools": [
+      "read_file",
+      "search_content",
+      "list_directory",
+      "manage_tasks"
+    ],
+    "disabledServers": []
+  },
+  "modelConfig": {
+    "providerId": "openrouter",
+    "modelId": "deepseek/deepseek-v4-pro",
+    "temperature": 0.7,
+    "maxTokens": 4096
+  },
+  "connection": {
+    "type": "internal",
+    "channels": ["telegram", "web_chat", "rest_api"]
+  },
+  "routing": {
+    "keywords": ["help", "question", "what is", "how to", "explain", "summarize", "remind", "task", "idea"],
+    "defaultAgent": true
+  }
+}

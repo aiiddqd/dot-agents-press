@@ -4,6 +4,22 @@
 
 ---
 
+## About the `.agents` Protocol
+
+This plugin is built in the spirit of the [.agents Protocol](https://dotagentsprotocol.com/) — an open directory convention for AI agent configuration.
+
+**Key ideas:**
+
+- **One directory (`.agents/`)** — houses everything an agent needs: MCP tools, `AGENTS.md` instructions, Skills, Sub-Agents, Tasks, and Memories. Plain JSON and Markdown, no proprietary schemas.
+- **Vendor-neutral** — works with any AI tool, editor, or agent framework. No lock-in.
+- **Git-friendly** — the entire agent configuration can be committed, diffed, branched, and shared.
+- **Layered** — global defaults at `~/.agents/`, workspace overrides at `./.agents/` (workspace wins on conflict).
+- **Seven standards, one place** — MCP, AGENTS.md, Skills, ACP, Sub-Agents, Tasks, and Memories converge in a single predictable directory.
+
+Dot Agents Press brings this vision to WordPress — giving you a first-class WP-Admin UI for creating and managing conversational AI agents that can be embedded anywhere via shortcodes or the REST API.
+
+---
+
 ## Features
 
 - **Manage multiple agents** from a dedicated WP-Admin menu
@@ -115,6 +131,108 @@ The chat widget uses CSS custom properties for easy theming. Add overrides to yo
 | OpenAI     | `openai`        | `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`, …    |
 | Anthropic  | `anthropic`     | `claude-opus-4-5`, `claude-sonnet-4-5`, …    |
 | Custom     | `custom`        | Any OpenAI-compatible endpoint (model free text) |
+
+---
+
+## Telegram Bot Setup
+
+You can talk to your agent directly in Telegram — the plugin handles webhook delivery and routes messages to the configured agent.
+
+### Step 1: Create a Telegram bot
+
+1. Open Telegram and message [@BotFather](https://t.me/BotFather).
+2. Send `/newbot` and follow the prompts — choose a name and a username ending in `bot`.
+3. Copy the token BotFather gives you (looks like `123456:ABC-DEF1234ghIkl`).
+
+### Step 2: Get your Telegram user ID
+
+1. Message [@userinfobot](https://t.me/userinfobot) on Telegram.
+2. It will reply with your numeric `Id` — copy it.
+
+This ensures **only you** can talk to the bot (private assistant mode).
+
+### Step 3: Configure the plugin
+
+1. Go to **Settings → Dot Agents Config** in WordPress admin.
+2. Fill in:
+   - **Telegram Bot Token** — the token from @BotFather
+   - **Telegram User ID** — your numeric Telegram ID
+   - **Webhook Secret** — (optional) a random string for webhook verification
+   - **Default Agent ID** — the ID of the agent that will respond (or leave empty to use the first enabled agent)
+3. Save changes.
+
+### Step 4: Set the webhook
+
+Use WP-CLI to connect Telegram to your WordPress site:
+
+```bash
+wp dap telegram set-webhook
+```
+
+Verify it worked:
+
+```bash
+wp dap telegram status
+```
+
+Expected output:
+```
+URL:             https://yoursite.com/wp-json/dot-agents-press/v1/telegram/webhook
+Has custom cert: no
+Pending updates: 0
+```
+
+### Step 5: Test it
+
+Open your bot in Telegram and send a message. The agent will reply.
+
+**Tip:** If the bot doesn't respond, check `wp dap telegram status` for errors. Common issues: self-signed SSL certificate (Telegram requires valid HTTPS), or the webhook URL not being publicly reachable. Use [ngrok](https://ngrok.com/) for local testing.
+
+### Managing the webhook
+
+```bash
+wp dap telegram set-webhook      # Install / update the webhook
+wp dap telegram delete-webhook   # Remove the webhook
+wp dap telegram status           # Show current webhook info
+```
+
+### How it works
+
+```
+Telegram → webhook → POST /wp-json/dot-agents-press/v1/telegram/webhook
+                          │
+                   TelegramBridge
+                          │
+                   1. Verify secret (optional)
+                   2. Authorize user (telegram_authorized_user_id)
+                   3. Resolve agent → DAP_API::handle_chat()
+                   4. AgentsProtocol::build_system_prompt()
+                      → .agents/system-prompt.md
+                      → .agents/agents.md
+                      → DB system_prompt
+                   5. AI API call → reply
+                          │
+                   sendMessage(chat_id, reply)
+                          │
+Telegram ←────────────────┘
+```
+
+### .agents/ Protocol integration
+
+The plugin automatically reads agent instructions from your project root (one level above `wp-config.php`):
+
+```
+project/                      ← your repo root
+├── .agents/
+│   ├── system-prompt.md      ← primary system prompt (priority 1)
+│   └── agents.md             ← project guidelines (priority 2)
+└── public/                   ← WordPress root (ABSPATH)
+    └── wp-config.php
+```
+
+The final system prompt is assembled as: `system-prompt.md` + `agents.md` + agent's DB prompt. All files are optional — if none exist, only the DB prompt is used.
+
+Legacy fallback: if `.agents/agents.md` doesn't exist, the plugin also checks for `AGENTS.md` in the project root (same level as `.agents/`).
 
 ---
 
