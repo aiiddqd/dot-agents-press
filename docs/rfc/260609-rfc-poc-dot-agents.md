@@ -31,6 +31,16 @@
 
 ## 2. Компоненты PoC
 
+### Settings
+
+example https://wpcraft.ru/wp-admin/options-general.php?page=dot-agents-config
+class app/Settings.php
+
+- default model - deepseek-v4-pro
+- default provider - openrouter
+- API Token - replace to telegram_bot_token
+- telegram id - for protecting - only private assistant
+
 ### 2.1 Telegram Bot Bridge
 
 **Файл:** `app/TelegramBridge.php`
@@ -227,7 +237,130 @@ register_rest_route( self::REST_NAMESPACE, '/telegram/webhook', [
 ] );
 ```
 
----
+### 5.4. Работа через провайдер OpenRouter (пример из SDK)
+
+```
+/**
+ * Debug AI endpoint — ?dap_test_ai=1 for status, ?dap_test_ai=prompt&q=Hello to generate.
+ * Uses wp_ai_client_prompt() routed through the active Connector (OpenRouter).
+ */
+add_action( 'wp_loaded', function () {
+	if ( empty( $_GET['dap_test_ai'] ) || ! function_exists( 'wp_ai_client_prompt' ) ) {
+		return;
+	}
+
+	// Only allow admins.
+	if ( ! current_user_can( 'manage_options' ) ) {
+		wp_die( 'Unauthorized.' );
+	}
+
+	header( 'Content-Type: text/plain; charset=utf-8' );
+
+	// If a prompt is requested, run text generation.
+	if ( 'prompt' === $_GET['dap_test_ai'] && ! empty( $_GET['q'] ) ) {
+		if ( ! wp_supports_ai() ) {
+			echo "ERROR: wp_supports_ai() returned false.\n";
+			exit;
+		}
+
+		$prompt = sanitize_text_field( wp_unslash( $_GET['q'] ) );
+
+		$builder = wp_ai_client_prompt( $prompt )
+			->using_model_preference(
+				'deepseek/deepseek-v4-pro',
+				'anthropic/claude-haiku-4-5',
+				'google/gemini-2.5-flash',
+				'openai/gpt-4o-mini'
+			);
+
+		echo "=== Generating text ===\n";
+		echo "Prompt: " . $prompt . "\n\n";
+
+		try {
+			$result = $builder->generate_text_result();
+			echo "Result: " . $result->toText() . "\n\n";
+
+			// Show which model was actually used.
+			$modelMeta    = $result->getModelMetadata();
+			$providerMeta = $result->getProviderMetadata();
+			echo "=== Model used ===\n";
+			printf( "  Provider: %s (%s)\n", $providerMeta->getName(), $providerMeta->getId() );
+			printf( "  Model:    %s (%s)\n", $modelMeta->getName(), $modelMeta->getId() );
+
+			$usage = $result->getTokenUsage();
+			if ( $usage ) {
+				printf( "  Tokens:   %d in / %d out / %d total\n",
+					$usage->getPromptTokens(),
+					$usage->getCompletionTokens(),
+					$usage->getTotalTokens()
+				);
+			}
+		} catch ( \Throwable $e ) {
+			echo "ERROR: " . $e->getMessage() . "\n";
+		}
+		echo "\n=== Done ===\n";
+		exit;
+	}
+
+	// Default: dump AI status.
+	$registry = \WordPress\AiClient\AiClient::defaultRegistry();
+
+	echo "=== AI Status ===\n";
+	echo "wp_supports_ai(): " . ( wp_supports_ai() ? 'true' : 'false' ) . "\n\n";
+
+	echo "=== Providers ===\n";
+	foreach ( [ 'openrouter', 'anthropic', 'google', 'openai' ] as $id ) {
+		printf( "  %s: %s\n", $id, $registry->hasProvider( $id ) ? 'registered' : 'not registered' );
+	}
+	echo "\n";
+
+	// Check API key sources.
+	echo "=== API Key ===\n";
+	$env_key = getenv( 'OPENROUTER_API_KEY' );
+	echo "OPENROUTER_API_KEY env: " . ( $env_key ? substr( $env_key, 0, 12 ) . '...' : 'NOT SET' ) . "\n";
+	echo "OPENROUTER_API_KEY constant: " . ( defined( 'OPENROUTER_API_KEY' ) ? substr( OPENROUTER_API_KEY, 0, 12 ) . '...' : 'NOT DEFINED' ) . "\n";
+	$db_key = get_option( 'connectors_ai_openrouter_api_key' );
+	echo "connectors_ai_openrouter_api_key option: " . ( $db_key ? substr( $db_key, 0, 12 ) . '...' : 'NOT SET' ) . "\n";
+	echo "\n";
+
+	// List models from OpenRouter provider.
+	echo "=== OpenRouter models (first 10) ===\n";
+	try {
+		$className = $registry->getProviderClassName( 'openrouter' );
+		$all = $className::modelMetadataDirectory()->listModelMetadata();
+		foreach ( array_slice( $all, 0, 10 ) as $model ) {
+			printf( "  %s (%s)\n", $model->getId(), $model->getName() );
+		}
+		echo "  ... total: " . count( $all ) . " models\n";
+	} catch ( \Throwable $e ) {
+		echo "  Error listing models: " . $e->getMessage() . "\n";
+	}
+	echo "\nUse ?dap_test_ai=prompt&q=Hello to test text generation.\n";
+
+	// Also run a quick smoke test.
+	echo "\n=== Quick smoke test ===\n";
+	try {
+		$builder = wp_ai_client_prompt( 'Ответь одним словом: столица Франции?' )
+			->using_model_preference(
+				'deepseek/deepseek-v4-pro',
+				'anthropic/claude-haiku-4-5',
+				'google/gemini-2.5-flash',
+				'openai/gpt-4o-mini'
+			);
+		$result = $builder->generate_text_result();
+		echo "Prompt: Столица Франции?\n";
+		echo "Answer: " . $result->toText() . "\n";
+		$modelMeta = $result->getModelMetadata();
+		printf( "Model:  %s\n", $modelMeta->getId() );
+		$usage = $result->getTokenUsage();
+		printf( "Tokens: %d in / %d out\n", $usage->getPromptTokens(), $usage->getCompletionTokens() );
+	} catch ( \Throwable $e ) {
+		echo "ERROR: " . $e->getMessage() . "\n";
+	}
+	echo "\n=== Done ===\n";
+	exit;
+} );
+```
 
 ## 6. План реализации
 

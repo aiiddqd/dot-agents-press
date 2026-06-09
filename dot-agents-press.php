@@ -15,6 +15,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
+
 define( 'DAP_VERSION', '1.0.0' );
 define( 'DAP_PLUGIN_FILE', __FILE__ );
 define( 'DAP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
