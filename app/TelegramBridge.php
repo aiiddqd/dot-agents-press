@@ -78,13 +78,13 @@ class TelegramBridge {
 		$agent = $this->resolve_agent();
 
 		if ( ! $agent ) {
-			$this->send_message( $chat_id, '⚠️ Агент не найден. Настройте агента в админке WordPress.' );
+			$this->send_message( $chat_id, '⚠️ Agent not found. Create .agents/agents/{slug}/agent.md in your project root.' );
 			return new \WP_Error( 'no_agent', 'No agent found.', [ 'status' => 500 ] );
 		}
 
 		// 5. Build messages array and delegate to the existing chat handler.
 		$fake_request = new \WP_REST_Request( 'POST', '/dot-agents-press/v1/chat' );
-		$fake_request->set_param( 'agent_id', $agent->id );
+		$fake_request->set_param( 'agent_slug', $agent->slug );
 		$fake_request->set_param( 'messages', [
 			[ 'role' => 'user', 'content' => $text ],
 		] );
@@ -224,25 +224,12 @@ class TelegramBridge {
 	 * Find the agent to use for Telegram messages.
 	 *
 	 * Priority:
-	 * 1. agent_id from settings (telegram_default_agent_id)
-	 * 2. First enabled agent in the database
+	 * 1. telegram_default_agent_slug from Settings
+	 * 2. First enabled agent in .agents/agents/
 	 *
 	 * @return object|null
 	 */
 	private function resolve_agent(): ?object {
-		$agent_repo = dot_agents_press()->agent;
-
-		$agent_id = dot_agents_press()->settings()->get( 'telegram_default_agent_id', '' );
-
-		if ( $agent_id !== '' && is_numeric( $agent_id ) ) {
-			$agent = $agent_repo->get( (int) $agent_id );
-			if ( $agent && $agent->enabled ) {
-				return $agent;
-			}
-		}
-
-		// Fallback to first enabled agent.
-		$agents = $agent_repo->get_all( [ 'enabled' => true, 'per_page' => 1 ] );
-		return $agents[0] ?? null;
+		return AgentsProtocol::resolve_telegram_agent();
 	}
 }

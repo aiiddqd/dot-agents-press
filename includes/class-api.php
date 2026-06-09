@@ -3,20 +3,23 @@
  * REST API endpoints and shortcode handler.
  *
  * Shortcode usage:
- *   [dot_agent id="3"]
- *   [dot_agent slug="my-agent"]
+ *   [dot_agent slug="personal-assistant"]
  *
- * REST endpoint:
+ * REST endpoints:
  *   POST /wp-json/dot-agents-press/v1/chat
  *   {
- *     "agent_id": 3,
+ *     "agent_slug": "personal-assistant",
  *     "messages": [ {"role":"user","content":"Hello"} ]
  *   }
+ *
+ * Agents are discovered from .agents/agents/{slug}/agent.md files.
  *
  * @package Dot_Agents_Press
  */
 
 defined( 'ABSPATH' ) || exit;
+
+use DotAgentsPress\AgentsProtocol;
 
 /** Registers the REST route and the [dot_agent] shortcode. */
 class DAP_API {
@@ -42,10 +45,10 @@ class DAP_API {
 				'callback'            => [ $this, 'handle_chat' ],
 				'permission_callback' => '__return_true',
 				'args'                => [
-					'agent_id' => [
+					'agent_slug' => [
 						'required'          => true,
-						'type'              => 'integer',
-						'sanitize_callback' => 'absint',
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_text_field',
 					],
 					'messages' => [
 						'required' => true,
@@ -76,16 +79,14 @@ class DAP_API {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Proxies a chat message list to the configured AI provider and returns
-	 * the assistant reply.
+	 * Proxies a chat message list to OpenRouter and returns the assistant reply.
 	 *
 	 * @param \WP_REST_Request $request
 	 * @return \WP_REST_Response|\WP_Error
 	 */
 	public function handle_chat( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
-		$agent_repo = dot_agents_press()->agent;
-
-		$agent = $agent_repo->get( $request->get_param( 'agent_id' ) );
+		$slug  = $request->get_param( 'agent_slug' );
+		$agent = AgentsProtocol::discover_agent( $slug );
 
 		if ( ! $agent ) {
 			return new \WP_Error( 'not_found', __( 'Agent not found.', 'dot-agents-press' ), [ 'status' => 404 ] );
@@ -117,18 +118,18 @@ class DAP_API {
 			];
 		}
 
-		$api_key = $agent_repo->resolve_api_key( $agent );
+		$api_key = AgentsProtocol::resolve_api_key( $agent );
 
 		if ( empty( $api_key ) ) {
 			return new \WP_Error(
 				'no_api_key',
-				__( 'No API key configured for this agent. Please add one in the plugin settings.', 'dot-agents-press' ),
+				__( 'No API key configured. Define OPENROUTER_API_KEY in wp-config.php or set it in Settings → Dot Agents Config.', 'dot-agents-press' ),
 				[ 'status' => 500 ]
 			);
 		}
 
-		// Prepend system prompt — merged from .agents/ files + DB.
-		$system_prompt = \DotAgentsPress\AgentsProtocol::build_system_prompt( $agent->system_prompt );
+		// Prepend system prompt — merged from .agents/ files.
+		$system_prompt = AgentsProtocol::build_system_prompt( $agent->system_prompt );
 		if ( ! empty( $system_prompt ) ) {
 			array_unshift( $clean_messages, [
 				'role'    => 'system',
@@ -136,20 +137,17 @@ class DAP_API {
 			] );
 		}
 
-		switch ( $agent->provider ) {
-			case 'anthropic':
-				return $this->call_anthropic( $agent, $clean_messages, $api_key );
-			case 'openai':
-			default:
-				return $this->call_openai( $agent, $clean_messages, $api_key );
-		}
+		return $this->call_openrouter( $agent, $clean_messages, $api_key );
 	}
 
 	// -------------------------------------------------------------------------
-	// OpenAI
+	// OpenRouter (OpenAI-compatible)
 	// -------------------------------------------------------------------------
 
-	private function call_openai( object $agent, array $messages, string $api_key ): \WP_REST_Response|\WP_Error {
+	/**
+	 * Call OpenRouter chat completions API.
+	 */
+	private function call_openrouter( object $agent, array $messages, string $api_key ): \WP_REST_Response|\WP_Error {
 		$body = [
 			'model'       => $agent->model,
 			'messages'    => $messages,
@@ -157,24 +155,25 @@ class DAP_API {
 		];
 
 		$response = wp_remote_post(
-			'https://api.openai.com/v1/chat/completions',
+			'https://openrouter.ai/api/v1/chat/completions',
 			[
-				'timeout' => 60,
+				'timeout' => 90,
 				'headers' => [
 					'Authorization' => 'Bearer ' . $api_key,
 					'Content-Type'  => 'application/json',
+					'HTTP-Referer'  => home_url(),
 				],
 				'body'    => wp_json_encode( $body ),
 			]
 		);
 
-		return $this->parse_openai_response( $response );
+		return $this->parse_openrouter_response( $response );
 	}
 
 	/**
 	 * @param array|\WP_Error $response wp_remote_post() result.
 	 */
-	private function parse_openai_response( array|\WP_Error $response ): \WP_REST_Response|\WP_Error {
+	private function parse_openrouter_response( array|\WP_Error $response ): \WP_REST_Response|\WP_Error {
 		if ( is_wp_error( $response ) ) {
 			return new \WP_Error( 'http_error', $response->get_error_message(), [ 'status' => 502 ] );
 		}
@@ -199,85 +198,11 @@ class DAP_API {
 	}
 
 	// -------------------------------------------------------------------------
-	// Anthropic
-	// -------------------------------------------------------------------------
-
-	private function call_anthropic( object $agent, array $messages, string $api_key ): \WP_REST_Response|\WP_Error {
-		// Extract system message (Anthropic uses a top-level system param).
-		$system   = '';
-		$filtered = [];
-		foreach ( $messages as $msg ) {
-			if ( $msg['role'] === 'system' ) {
-				$system = $msg['content'];
-			} else {
-				$filtered[] = $msg;
-			}
-		}
-
-		$body = [
-			'model'       => $agent->model,
-			'max_tokens'  => 4096,
-			'messages'    => $filtered,
-			'temperature' => (float) $agent->temperature,
-		];
-
-		if ( $system ) {
-			$body['system'] = $system;
-		}
-
-		$response = wp_remote_post(
-			'https://api.anthropic.com/v1/messages',
-			[
-				'timeout' => 60,
-				'headers' => [
-					'x-api-key'         => $api_key,
-					'anthropic-version' => '2023-06-01',
-					'Content-Type'      => 'application/json',
-				],
-				'body'    => wp_json_encode( $body ),
-			]
-		);
-
-		return $this->parse_anthropic_response( $response );
-	}
-
-	/**
-	 * @param array|\WP_Error $response wp_remote_post() result.
-	 */
-	private function parse_anthropic_response( array|\WP_Error $response ): \WP_REST_Response|\WP_Error {
-		if ( is_wp_error( $response ) ) {
-			return new \WP_Error( 'http_error', $response->get_error_message(), [ 'status' => 502 ] );
-		}
-
-		$code = wp_remote_retrieve_response_code( $response );
-		$raw  = wp_remote_retrieve_body( $response );
-		$data = json_decode( $raw, true );
-
-		if ( $code !== 200 ) {
-			$msg = $data['error']['message'] ?? __( 'Unknown Anthropic API error.', 'dot-agents-press' );
-			return new \WP_Error( 'api_error', $msg, [ 'status' => 502 ] );
-		}
-
-		$content = $data['content'][0]['text'] ?? '';
-
-		return new \WP_REST_Response( [
-			'role'    => 'assistant',
-			'content' => $content,
-			'model'   => $data['model'] ?? '',
-			'usage'   => $data['usage'] ?? [],
-		], 200 );
-	}
-
-	// -------------------------------------------------------------------------
-	// Admin-only agent list
+	// Agent list
 	// -------------------------------------------------------------------------
 
 	public function list_agents( \WP_REST_Request $request ): \WP_REST_Response {
-		$agents = dot_agents_press()->agent->get_all( [ 'per_page' => 100 ] );
-		// Strip encrypted keys from the response.
-		foreach ( $agents as $a ) {
-			$a->api_key = ! empty( $a->api_key ) ? '••••••••' : '';
-		}
+		$agents = AgentsProtocol::list_agents();
 		return new \WP_REST_Response( $agents, 200 );
 	}
 
@@ -301,14 +226,16 @@ class DAP_API {
 			'dot_agent'
 		);
 
-		$agent_repo = dot_agents_press()->agent;
+		// Resolve by slug (file-based agents).
+		$slug  = ! empty( $atts['slug'] ) ? sanitize_title( $atts['slug'] ) : '';
+		$agent = $slug !== '' ? AgentsProtocol::discover_agent( $slug ) : null;
 
-		if ( ! empty( $atts['slug'] ) ) {
-			$agent = $agent_repo->get( sanitize_title( $atts['slug'] ) );
-		} elseif ( $atts['id'] ) {
-			$agent = $agent_repo->get( (int) $atts['id'] );
-		} else {
-			return '';
+		// Fallback: resolve by legacy numeric ID via DB (for backwards compat).
+		if ( ! $agent && $atts['id'] ) {
+			$agent = dot_agents_press()->agent->get( (int) $atts['id'] );
+			if ( $agent ) {
+				$agent->slug = $agent->slug ?? '';
+			}
 		}
 
 		if ( ! $agent || ! $agent->enabled ) {
