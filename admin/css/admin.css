@@ -1,0 +1,120 @@
+/* Dot Agents Press — Admin Styles */
+
+/* ── Layout ─────────────────────────────────────── */
+.dap-wrap .dap-actions {
+	margin-top: 16px;
+	display: flex;
+	gap: 8px;
+	align-items: center;
+}
+
+.dap-wrap #post-body.columns-2 {
+	display: grid;
+	grid-template-columns: 1fr 340px;
+	gap: 20px;
+	align-items: start;
+}
+
+.dap-wrap #post-body-content {
+	min-width: 0;
+}
+
+.dap-wrap #postbox-container-1 {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+/* ── Postbox overrides ──────────────────────────── */
+.dap-wrap .postbox {
+	margin: 0 0 16px;
+}
+
+.dap-wrap .postbox .hndle {
+	font-size: 14px;
+	padding: 10px 12px;
+}
+
+.dap-wrap .postbox .inside {
+	padding: 12px;
+}
+
+/* ── Badges ─────────────────────────────────────── */
+.dap-badge {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 10px;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.dap-badge--active {
+	background: #d1fae5;
+	color: #065f46;
+}
+
+.dap-badge--inactive {
+	background: #f3f4f6;
+	color: #6b7280;
+}
+
+/* ── Shortcode display ──────────────────────────── */
+.dap-shortcode {
+	display: block;
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 3px;
+	padding: 6px 10px;
+	font-family: monospace;
+	font-size: 12px;
+	cursor: pointer;
+	transition: background 0.15s;
+	margin-bottom: 4px;
+}
+
+.dap-shortcode:hover {
+	background: #e6f0ff;
+	border-color: #2271b1;
+}
+
+.dap-shortcode.dap-copied {
+	background: #d1fae5;
+	border-color: #10b981;
+	color: #065f46;
+}
+
+/* ── Empty state ─────────────────────────────────── */
+.dap-empty {
+	margin: 40px 0;
+	text-align: center;
+	color: #6b7280;
+}
+
+/* ── Key indicator ───────────────────────────────── */
+.dap-key-indicator {
+	margin-left: 8px;
+	font-size: 12px;
+	color: #065f46;
+	font-weight: 600;
+}
+
+/* ── Code block (settings page) ──────────────────── */
+.dap-code-block {
+	background: #1e1e2e;
+	color: #cdd6f4;
+	padding: 12px 16px;
+	border-radius: 6px;
+	font-size: 13px;
+	overflow: auto;
+	max-width: 520px;
+	margin: 8px 0;
+}
+
+/* ── Responsive ──────────────────────────────────── */
+@media screen and (max-width: 960px) {
+	.dap-wrap #post-body.columns-2 {
+		grid-template-columns: 1fr;
+	}
+}
