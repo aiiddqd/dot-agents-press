@@ -10,9 +10,9 @@
 
 Реализовать PoC из трёх компонентов:
 1. **Telegram Bot Bridge** — webhook-обработчик, принимает сообщения из Telegram и маршрутизирует в AI-агента через существующий chat endpoint плагина.
-2. **Системный промпт** — загрузка `AGENTS.md` / `agent.md` из `.agents/` директории на один уровень выше `wp-config.php`.
-3. **Entry point** — авто-обнаружение `.agents/agent.md` (или `AGENTS.md`) по пути `ABSPATH . '../.agents/agent.md'`.
-
+2. **Системный промпт** — загрузка `agents.md` и `system-prompt.md` из `.agents/` директории на один уровень выше `wp-config.php` (по спецификации [.agents Protocol](https://dotagentsprotocol.com/)).
+3. **Entry point** — авто-обнаружение `.agents/agents.md` и `.agents/system-prompt.md` по пути `ABSPATH . '../.agents/'`.
+4. Все новые классы пишем в папку `app`, а не `includes`.
 ---
 
 ## 1. Контекст и мотивация
@@ -33,7 +33,8 @@
 
 ### 2.1 Telegram Bot Bridge
 
-**Файл:** `includes/class-telegram-bridge.php`
+**Файл:** `app/TelegramBridge.php`
+**Класс:** `DotAgentsPress\TelegramBridge`
 
 **Логика:**
 1. Регистрирует REST endpoint: `POST /wp-json/dot-agents-press/v1/telegram/webhook`
@@ -55,24 +56,30 @@
 
 ### 2.2 Системный промпт из .agents/
 
-**Файл:** `includes/class-agents-protocol.php`
+**Файл:** `app/AgentsProtocol.php`
+**Класс:** `DotAgentsPress\AgentsProtocol`
+
+**Спецификация:** [.agents Protocol](https://dotagentsprotocol.com/) определяет два ключевых файла:
+- **`agents.md`** — инструкции/гайдлайны для агента (AGENTS.md-совместимый формат, build steps, conventions)
+- **`system-prompt.md`** — собственно системный промпт
 
 **Логика:**
-1. При загрузке агента проверяет наличие файла `AGENTS.md` или `agent.md` по пути:
+1. При загрузке агента проверяет наличие файлов по пути:
    ```
-   {ABSPATH}/../.agents/agent.md
-   {ABSPATH}/../.agents/AGENTS.md
+   {ABSPATH}/../.agents/system-prompt.md   ← основной источник системного промпта
+   {ABSPATH}/../.agents/agents.md           ← дополнительные инструкции
    ```
    Где `ABSPATH` — корень WordPress (там где `wp-config.php`).
 
-2. Если файл найден — читает его содержимое и **дополняет** system_prompt агента (prepend или append).
+2. **Стратегия слияния (PoC — вариант A):**
+   - **`system-prompt.md`** (если есть) → используется как основной system prompt
+   - **`agents.md`** (если есть) → добавляется в конец system prompt как «Project Guidelines»
+   - **`system_prompt` из БД** → добавляется в конец (роль: агент-специфичный контекст из админки)
+   - Итоговый порядок: `system-prompt.md` + `agents.md` + `system_prompt из БД`
 
-3. Стратегия слияния (на выбор, для PoC — вариант A):
-   - **A (prepend):** содержимое файла в начало system_prompt из БД
-   - **B (replace):** если файл есть — он побеждает БД
-   - **C (append):** содержимое файла в конец
+3. Файлы не обязаны существовать — если нет, используется только `system_prompt` из БД.
 
-4. Файл не обязан существовать — если нет, используется только `system_prompt` из БД.
+4. **Совместимость с AGENTS.md:** файл `agents.md` семантически идентичен `AGENTS.md` из спецификации OpenAI/Linux Foundation. Для обратной совместимости также проверяется `../AGENTS.md` (без папки `.agents/`).
 
 **Почему `../.agents/` (выше wp-config.php)?**
 - `wp-config.php` лежит в корне WordPress (например, `/var/www/html/wp-config.php`).
@@ -80,34 +87,61 @@
 - Это соответствует `.agents` Protocol: конфигурация агента живёт в корне проекта, а не внутри `wp-content`.
 - Альтернатива: если WordPress установлен как subdirectory (например, `project/public/wp-config.php`), то `.agents/` окажется в `project/.agents/` — это правильное поведение.
 
-### 2.3 Entry Point: AGENTS.md / agent.md
+### 2.3 Entry Point: agents.md + system-prompt.md
 
-**Спецификация обнаружения файла:**
+**Спецификация обнаружения файлов:**
 
 ```php
-// Порядок поиска:
-$search_paths = [
-    ABSPATH . '../.agents/agent.md',
-    ABSPATH . '../.agents/AGENTS.md',
-    ABSPATH . '../AGENTS.md',
+// Порядок поиска (первый найденный — побеждает в своей категории):
+
+// Категория: System Prompt
+$system_prompt_paths = [
+    ABSPATH . '../.agents/system-prompt.md',   // .agents Protocol (приоритет)
+];
+
+// Категория: Agent Instructions
+$agents_md_paths = [
+    ABSPATH . '../.agents/agents.md',           // .agents Protocol (приоритет)
+    ABSPATH . '../AGENTS.md',                   // Legacy: AGENTS.md в корне проекта
 ];
 ```
 
-- Приоритет: `agent.md` → `AGENTS.md` → `../AGENTS.md`
-- Кеширование: содержимое читается один раз при загрузке агента (с кешем на срок жизни запроса).
-- MD5-хеш файла сохраняется в опцию для отслеживания изменений.
+- **Два независимых файла:** `system-prompt.md` и `agents.md` читаются раздельно и склеиваются
+- **Приоритет:** `.agents/system-prompt.md` → `.agents/agents.md` → `../AGENTS.md` (legacy)
+- **Кеширование:** содержимое читается один раз при загрузке агента (static-кеш на время запроса)
+- **Frontmatter:** на этапе PoC frontmatter (`---` fences) не парсится — содержимое используется как есть. Полная поддержка frontmatter — в следующей итерации.
 
 ---
 
-## 3. Структура файлов (новые/изменяемые)
+## 3. Соответствие .agents Protocol (v2026-02-24)
+
+| Элемент спецификации | Поддержка в PoC | Статус |
+|---|---|---|
+| `agents.md` — инструкции агента | ✅ Читается из `.agents/agents.md` | PoC |
+| `system-prompt.md` — системный промпт | ✅ Читается из `.agents/system-prompt.md` | PoC |
+| `AGENTS.md` (legacy, без папки) | ✅ Поддерживается как fallback | PoC |
+| `mcp.json` — MCP servers | ❌ Вне скоупа PoC | Будущее |
+| `models.json` — model presets | ❌ Вне скоупа PoC | Будущее |
+| `skills/*/skill.md` | ❌ Вне скоупа PoC | Будущее |
+| `agents/*/agent.md` — sub-agents | ❌ Вне скоупа PoC | Будущее |
+| `tasks/*/task.md` | ❌ Вне скоупа PoC | Будущее |
+| `memories/*.md` | ❌ Вне скоупа PoC | Будущее |
+| Frontmatter (`---` fences) | ❌ Не парсится в PoC | Будущее |
+| Two-layer merge (~/.agents + ./.agents) | ❌ Только workspace-слой | Будущее |
+| `.dotagents` bundles / Hub | ❌ Вне скоупа PoC | Будущее |
+
+> **Принцип:** PoC реализует минимальное подмножество спецификации, достаточное для загрузки системного промпта из файловой системы. Остальные элементы — по мере развития плагина (см. RFC `260608-mvp`).
+
+---
+
+## 4. Структура файлов (новые/изменяемые)
 
 ```
 _dot-agents-press/
-├── includes/
-│   ├── class-telegram-bridge.php    ← NEW: Telegram webhook handler
-│   └── class-agents-protocol.php    ← NEW: .agents/ file loader
 ├── app/
-│   └── Settings.php                 ← MODIFIED: добавить telegram_* поля
+│   ├── Settings.php                 ← MODIFIED: добавить telegram_* поля
+│   ├── TelegramBridge.php           ← NEW: Telegram webhook handler
+│   └── AgentsProtocol.php           ← NEW: .agents/ file loader
 ├── includes/
 │   ├── class-api.php                ← MODIFIED: добавить register_telegram_route()
 │   └── class-agent.php              ← MODIFIED: resolve_system_prompt() с учётом .agents/
@@ -124,7 +158,7 @@ Telegram User
     ▼
 Telegram Bot API ──webhook──► POST /wp-json/dot-agents-press/v1/telegram/webhook
     │                              │
-    │                         DAP_Telegram_Bridge
+    │                         DotAgentsPress\TelegramBridge
     │                              │
     │                         1. Проверка secret (опционально)
     │                         2. Извлечение chat_id + text
@@ -133,13 +167,14 @@ Telegram Bot API ──webhook──► POST /wp-json/dot-agents-press/v1/telegr
     │                         DAP_Agent
     │                              │
     │                         1. Загрузка агента из БД
-    │                         2. DAP_Agents_Protocol::load_system_prompt()
-    │                            → чтение ../.agents/agent.md
+    │                         2. AgentsProtocol::build_system_prompt()
+    │                            → чтение .agents/system-prompt.md
+    │                            → чтение .agents/agents.md
     │                            → слияние с system_prompt из БД
     │                         3. Вызов AI API (OpenAI/Anthropic)
     │                         4. Возврат ответа
     │                              │
-    │                         DAP_Telegram_Bridge
+    │                         DotAgentsPress\TelegramBridge
     │                              │
     │                         sendMessage(chat_id, reply)
     │                              │
@@ -150,28 +185,34 @@ Telegram Bot API ──webhook──► POST /wp-json/dot-agents-press/v1/telegr
 
 ## 5. Код: ключевые сигнатуры
 
-### 5.1 `class-telegram-bridge.php`
+### 5.1 `app/TelegramBridge.php`
 
 ```php
-class DAP_Telegram_Bridge {
+namespace DotAgentsPress;
+
+class TelegramBridge {
     public function __construct();
     public function register_routes(): void;
-    public function handle_webhook( WP_REST_Request $request ): WP_REST_Response|WP_Error;
+    public function handle_webhook( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error;
     public function set_webhook(): bool;        // WP-CLI / admin action
     public function delete_webhook(): bool;
-    private function send_message( string $chat_id, string $text ): array|WP_Error;
-    private function verify_secret( WP_REST_Request $request ): bool;
+    private function send_message( string $chat_id, string $text ): array|\WP_Error;
+    private function verify_secret( \WP_REST_Request $request ): bool;
 }
 ```
 
-### 5.2 `class-agents-protocol.php`
+### 5.2 `app/AgentsProtocol.php`
 
 ```php
-class DAP_Agents_Protocol {
-    public static function get_project_root(): string;     // ABSPATH . '../'
-    public static function find_agent_file(): ?string;     // первый найденный agent.md / AGENTS.md
-    public static function load_system_prompt(): ?string;  // содержимое файла или null
-    public static function merge_prompt( string $db_prompt, ?string $file_prompt ): string;
+namespace DotAgentsPress;
+
+class AgentsProtocol {
+    public static function get_project_root(): string;          // ABSPATH . '../'
+    public static function get_agents_dir(): string;           // ABSPATH . '../.agents/'
+    public static function find_system_prompt(): ?string;      // читает .agents/system-prompt.md
+    public static function find_agents_md(): ?string;          // читает .agents/agents.md или ../AGENTS.md
+    public static function build_system_prompt( string $db_prompt ): string;
+    // ↑ Склеивает: system-prompt.md + agents.md + DB prompt
 }
 ```
 
@@ -192,9 +233,9 @@ register_rest_route( self::REST_NAMESPACE, '/telegram/webhook', [
 
 | # | Задача | Файл | Сложность |
 |---|--------|------|-----------|
-| 1 | `class-agents-protocol.php` — поиск и чтение `../.agents/agent.md` | NEW | Низкая |
-| 2 | Модификация `class-agent.php` — вызов `merge_prompt` при загрузке system_prompt | MOD | Низкая |
-| 3 | `class-telegram-bridge.php` — webhook handler + sendMessage | NEW | Средняя |
+| 1 | `app/AgentsProtocol.php` — поиск и чтение `.agents/system-prompt.md` + `.agents/agents.md` | NEW | Низкая |
+| 2 | Модификация `class-agent.php` — вызов `AgentsProtocol::build_system_prompt()` при загрузке system_prompt | MOD | Низкая |
+| 3 | `app/TelegramBridge.php` — webhook handler + sendMessage | NEW | Средняя |
 | 4 | Регистрация telegram webhook route в `class-api.php` | MOD | Низкая |
 | 5 | Добавление настроек Telegram в `Settings.php` | MOD | Низкая |
 | 6 | Загрузка новых классов в `dot-agents-press.php` | MOD | Низкая |
