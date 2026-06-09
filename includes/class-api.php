@@ -127,11 +127,12 @@ class DAP_API {
 			);
 		}
 
-		// Prepend system prompt if set.
-		if ( ! empty( $agent->system_prompt ) ) {
+		// Prepend system prompt — merged from .agents/ files + DB.
+		$system_prompt = \DotAgentsPress\AgentsProtocol::build_system_prompt( $agent->system_prompt );
+		if ( ! empty( $system_prompt ) ) {
 			array_unshift( $clean_messages, [
 				'role'    => 'system',
-				'content' => $agent->system_prompt,
+				'content' => $system_prompt,
 			] );
 		}
 

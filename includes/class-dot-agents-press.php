@@ -27,6 +27,9 @@ final class Dot_Agents_Press {
 	/** @var \DotAgentsPress\Settings */
 	private \DotAgentsPress\Settings $settings;
 
+	/** @var \DotAgentsPress\TelegramBridge */
+	private \DotAgentsPress\TelegramBridge $telegram_bridge;
+
 	// -------------------------------------------------------------------------
 	// Bootstrap
 	// -------------------------------------------------------------------------
@@ -35,9 +38,13 @@ final class Dot_Agents_Press {
 		$this->load_dependencies();
 		$this->set_locale();
 
-		$this->agent    = new DAP_Agent();
-		$this->api      = new DAP_API();
-		$this->settings = new \DotAgentsPress\Settings();
+		$this->agent           = new DAP_Agent();
+		$this->api             = new DAP_API();
+		$this->settings        = new \DotAgentsPress\Settings();
+		$this->telegram_bridge = new \DotAgentsPress\TelegramBridge();
+
+		add_action( 'rest_api_init', [ $this->telegram_bridge, 'register_routes' ] );
+		$this->register_cli_commands();
 
 		if ( is_admin() ) {
 			$this->admin = new DAP_Admin();
@@ -65,6 +72,11 @@ final class Dot_Agents_Press {
 	/** Returns the Settings instance. */
 	public function settings(): \DotAgentsPress\Settings {
 		return $this->settings;
+	}
+
+	/** Returns the TelegramBridge instance. */
+	public function telegram_bridge(): \DotAgentsPress\TelegramBridge {
+		return $this->telegram_bridge;
 	}
 
 	// -------------------------------------------------------------------------
@@ -96,6 +108,8 @@ final class Dot_Agents_Press {
 		require_once DAP_PLUGIN_DIR . 'includes/class-admin.php';
 		require_once DAP_PLUGIN_DIR . 'includes/class-api.php';
 		require_once DAP_PLUGIN_DIR . 'app/Settings.php';
+		require_once DAP_PLUGIN_DIR . 'app/AgentsProtocol.php';
+		require_once DAP_PLUGIN_DIR . 'app/TelegramBridge.php';
 	}
 
 	private function set_locale(): void {
@@ -105,6 +119,58 @@ final class Dot_Agents_Press {
 				false,
 				DAP_PLUGIN_DIR . 'languages/'
 			);
+		} );
+	}
+
+	/**
+	 * Register WP-CLI commands (if WP-CLI is available).
+	 */
+	public function register_cli_commands(): void {
+		if ( ! defined( 'WP_CLI' ) || ! WP_CLI ) {
+			return;
+		}
+
+		\WP_CLI::add_command( 'dap telegram set-webhook', function () {
+			$result = dot_agents_press()->telegram_bridge()->set_webhook();
+			if ( $result ) {
+				\WP_CLI::success( 'Telegram webhook set successfully.' );
+			} else {
+				\WP_CLI::error( 'Failed to set Telegram webhook. Check your bot token in settings.' );
+			}
+		} );
+
+		\WP_CLI::add_command( 'dap telegram delete-webhook', function () {
+			$result = dot_agents_press()->telegram_bridge()->delete_webhook();
+			if ( $result ) {
+				\WP_CLI::success( 'Telegram webhook deleted.' );
+			} else {
+				\WP_CLI::error( 'Failed to delete Telegram webhook.' );
+			}
+		} );
+
+		\WP_CLI::add_command( 'dap telegram status', function () {
+			$token = dot_agents_press()->settings()->get( 'telegram_bot_token', '' );
+			if ( ! $token ) {
+				\WP_CLI::error( 'Telegram bot token not configured in settings.' );
+			}
+
+			$response = wp_remote_get( "https://api.telegram.org/bot{$token}/getWebhookInfo", [ 'timeout' => 10 ] );
+			if ( is_wp_error( $response ) ) {
+				\WP_CLI::error( $response->get_error_message() );
+			}
+
+			$data = json_decode( wp_remote_retrieve_body( $response ), true );
+			if ( empty( $data['ok'] ) ) {
+				\WP_CLI::error( 'Failed to get webhook info.' );
+			}
+
+			$info = $data['result'];
+			\WP_CLI::log( sprintf( 'URL:             %s', $info['url'] ?? '(none)' ) );
+			\WP_CLI::log( sprintf( 'Has custom cert: %s', ! empty( $info['has_custom_certificate'] ) ? 'yes' : 'no' ) );
+			\WP_CLI::log( sprintf( 'Pending updates: %d', $info['pending_update_count'] ?? 0 ) );
+			if ( ! empty( $info['last_error_message'] ) ) {
+				\WP_CLI::warning( sprintf( 'Last error: %s (date: %s)', $info['last_error_message'], $info['last_error_date'] ?? 'unknown' ) );
+			}
 		} );
 	}
 }

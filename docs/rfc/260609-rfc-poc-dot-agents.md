@@ -1,7 +1,7 @@
 # RFC: PoC — Telegram Bot Integration + .agents Protocol Entry Point
 
 **Дата:** 2026-06-09
-**Статус:** Draft
+**Статус:** In Progress
 **Плагин:** `_dot-agents-press`
 
 ---

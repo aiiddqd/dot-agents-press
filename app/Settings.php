@@ -106,17 +106,47 @@ class Settings {
 			self::PAGE_SLUG
 		);
 
-		// Field 1 — API Token
+		// Field 1 — Telegram Bot Token
 		add_settings_field(
-			'api_token',
-			__( 'API Token', 'dot-agents-press' ),
-			[ $this, 'field_api_token' ],
+			'telegram_bot_token',
+			__( 'Telegram Bot Token', 'dot-agents-press' ),
+			[ $this, 'field_bot_token' ],
 			self::PAGE_SLUG,
 			'dap_config_main',
-			[ 'label_for' => 'dap_api_token' ]
+			[ 'label_for' => 'dap_bot_token' ]
 		);
 
-		// Field 2 — Default Model
+		// Field 2 — Telegram Authorized User ID
+		add_settings_field(
+			'telegram_authorized_user_id',
+			__( 'Telegram User ID', 'dot-agents-press' ),
+			[ $this, 'field_authorized_user_id' ],
+			self::PAGE_SLUG,
+			'dap_config_main',
+			[ 'label_for' => 'dap_authorized_user_id' ]
+		);
+
+		// Field 3 — Webhook Secret
+		add_settings_field(
+			'telegram_webhook_secret',
+			__( 'Webhook Secret', 'dot-agents-press' ),
+			[ $this, 'field_webhook_secret' ],
+			self::PAGE_SLUG,
+			'dap_config_main',
+			[ 'label_for' => 'dap_webhook_secret' ]
+		);
+
+		// Field 4 — Default Agent ID
+		add_settings_field(
+			'telegram_default_agent_id',
+			__( 'Default Agent ID', 'dot-agents-press' ),
+			[ $this, 'field_default_agent_id' ],
+			self::PAGE_SLUG,
+			'dap_config_main',
+			[ 'label_for' => 'dap_default_agent_id' ]
+		);
+
+		// Field 5 — Default Model
 		add_settings_field(
 			'default_model',
 			__( 'Default Model', 'dot-agents-press' ),
@@ -126,7 +156,7 @@ class Settings {
 			[ 'label_for' => 'dap_default_model' ]
 		);
 
-		// Field 3 — Max Tokens
+		// Field 6 — Max Tokens
 		add_settings_field(
 			'max_tokens',
 			__( 'Max Tokens', 'dot-agents-press' ),
@@ -145,9 +175,12 @@ class Settings {
 		$sanitized = [];
 		$input     = is_array( $input ) ? $input : [];
 
-		$sanitized['api_token']     = sanitize_text_field( $input['api_token'] ?? '' );
-		$sanitized['default_model'] = sanitize_text_field( $input['default_model'] ?? 'gpt-4o' );
-		$sanitized['max_tokens']    = absint( $input['max_tokens'] ?? 2048 );
+		$sanitized['telegram_bot_token']       = sanitize_text_field( $input['telegram_bot_token'] ?? '' );
+		$sanitized['telegram_webhook_secret']  = sanitize_text_field( $input['telegram_webhook_secret'] ?? '' );
+		$sanitized['telegram_default_agent_id']= sanitize_text_field( $input['telegram_default_agent_id'] ?? '' );
+		$sanitized['telegram_authorized_user_id'] = sanitize_text_field( $input['telegram_authorized_user_id'] ?? '' );
+		$sanitized['default_model']            = sanitize_text_field( $input['default_model'] ?? 'deepseek/deepseek-v4-pro' );
+		$sanitized['max_tokens']               = absint( $input['max_tokens'] ?? 2048 );
 
 		if ( $sanitized['max_tokens'] < 1 ) {
 			$sanitized['max_tokens'] = 1;
@@ -175,28 +208,73 @@ class Settings {
 	// Field callbacks
 	// -------------------------------------------------------------------------
 
-	public function field_api_token( array $args ): void {
+	public function field_bot_token( array $args ): void {
 		$options = get_option( self::OPTION_NAME, [] );
-		$value   = $options['api_token'] ?? '';
+		$value   = $options['telegram_bot_token'] ?? '';
 		printf(
-			'<input type="password" id="%1$s" name="%2$s[api_token]" value="%3$s" class="regular-text" autocomplete="new-password" placeholder="sk-…">',
+			'<input type="password" id="%1$s" name="%2$s[telegram_bot_token]" value="%3$s" class="regular-text" autocomplete="new-password" placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11">',
 			esc_attr( $args['label_for'] ),
 			esc_attr( self::OPTION_NAME ),
 			esc_attr( $value )
 		);
 		echo '<p class="description">';
-		esc_html_e( 'Your API token for the AI provider.', 'dot-agents-press' );
+		esc_html_e( 'Token from @BotFather for your Telegram bot.', 'dot-agents-press' );
+		echo '</p>';
+	}
+
+	public function field_authorized_user_id( array $args ): void {
+		$options = get_option( self::OPTION_NAME, [] );
+		$value   = $options['telegram_authorized_user_id'] ?? '';
+		printf(
+			'<input type="text" id="%1$s" name="%2$s[telegram_authorized_user_id]" value="%3$s" class="regular-text" placeholder="123456789">',
+			esc_attr( $args['label_for'] ),
+			esc_attr( self::OPTION_NAME ),
+			esc_attr( $value )
+		);
+		echo '<p class="description">';
+		esc_html_e( 'Your Telegram numeric user ID. Only messages from this user will be accepted (private assistant mode).', 'dot-agents-press' );
+		echo '</p>';
+	}
+
+	public function field_webhook_secret( array $args ): void {
+		$options = get_option( self::OPTION_NAME, [] );
+		$value   = $options['telegram_webhook_secret'] ?? '';
+		printf(
+			'<input type="text" id="%1$s" name="%2$s[telegram_webhook_secret]" value="%3$s" class="regular-text" autocomplete="off" placeholder="%4$s">',
+			esc_attr( $args['label_for'] ),
+			esc_attr( self::OPTION_NAME ),
+			esc_attr( $value ),
+			esc_attr( wp_generate_password( 32, false ) )
+		);
+		echo '<p class="description">';
+		esc_html_e( 'Optional secret for webhook verification (X-Telegram-Bot-Api-Secret-Token header).', 'dot-agents-press' );
+		echo '</p>';
+	}
+
+	public function field_default_agent_id( array $args ): void {
+		$options = get_option( self::OPTION_NAME, [] );
+		$value   = $options['telegram_default_agent_id'] ?? '';
+		printf(
+			'<input type="number" id="%1$s" name="%2$s[telegram_default_agent_id]" value="%3$s" class="small-text" min="1" step="1">',
+			esc_attr( $args['label_for'] ),
+			esc_attr( self::OPTION_NAME ),
+			esc_attr( $value )
+		);
+		echo '<p class="description">';
+		esc_html_e( 'ID of the agent that handles Telegram messages. Leave empty to use the first enabled agent.', 'dot-agents-press' );
 		echo '</p>';
 	}
 
 	public function field_default_model( array $args ): void {
 		$options = get_option( self::OPTION_NAME, [] );
-		$value   = $options['default_model'] ?? 'gpt-4o';
+		$value   = $options['default_model'] ?? 'deepseek/deepseek-v4-pro';
 		$models  = [
-			'gpt-4o'          => 'GPT-4o',
-			'gpt-4o-mini'     => 'GPT-4o Mini',
-			'claude-haiku-4'  => 'Claude Haiku 4',
-			'claude-sonnet-4' => 'Claude Sonnet 4',
+			'deepseek/deepseek-v4-pro'       => 'DeepSeek V4 Pro (OpenRouter)',
+			'openai/gpt-4o'                  => 'GPT-4o (OpenRouter)',
+			'openai/gpt-4o-mini'             => 'GPT-4o Mini (OpenRouter)',
+			'anthropic/claude-haiku-4-5'     => 'Claude Haiku 4.5 (OpenRouter)',
+			'anthropic/claude-sonnet-4'      => 'Claude Sonnet 4 (OpenRouter)',
+			'google/gemini-2.5-flash'        => 'Gemini 2.5 Flash (OpenRouter)',
 		];
 		printf( '<select id="%s" name="%s[default_model]">', esc_attr( $args['label_for'] ), esc_attr( self::OPTION_NAME ) );
 		foreach ( $models as $model_id => $model_label ) {
