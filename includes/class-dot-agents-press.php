@@ -25,7 +25,7 @@ final class Dot_Agents_Press {
 	public DAP_API $api;
 
 	/** @var \DotAgentsPress\Settings */
-	public \DotAgentsPress\Settings $settings;
+	private \DotAgentsPress\Settings $settings;
 
 	// -------------------------------------------------------------------------
 	// Bootstrap
@@ -56,6 +56,15 @@ final class Dot_Agents_Press {
 			self::$instance = new self();
 		}
 		return self::$instance;
+	}
+
+	// -------------------------------------------------------------------------
+	// Accessors
+	// -------------------------------------------------------------------------
+
+	/** Returns the Settings instance. */
+	public function settings(): \DotAgentsPress\Settings {
+		return $this->settings;
 	}
 
 	// -------------------------------------------------------------------------
