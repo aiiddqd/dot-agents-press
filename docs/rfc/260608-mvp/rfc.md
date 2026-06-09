@@ -107,17 +107,7 @@ The plugin turns any WordPress site into a hub for personal/team agents with acc
 - **Compatibility**: WP 7.0+, PHP 8.1+.
 
 ### 6. Roadmap (Tentative)
-
-**MVP (v0.1)**:  
-- Telegram bot + basic chat.  
-- WP AI Client integration.  
-- Basic .agents/ import.
-
-**v0.2**: Full .agents support, multi-agent, file access.  
-**v0.3**: MCP tools, advanced skills, admin UI.  
-**v1.0**: Open-source release, documentation, agent template hub.
-**v2.0**: Additional messengers, advanced RAG, self-hosted LLM support.
-- RAG over posts/pages.
+[ROADMAP.md](../../../ROADMAP.md)
 
 ### 7. Risks & Considerations
 
