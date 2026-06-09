@@ -24,6 +24,9 @@ final class Dot_Agents_Press {
 	/** @var DAP_API */
 	public DAP_API $api;
 
+	/** @var \DotAgentsPress\Settings */
+	public \DotAgentsPress\Settings $settings;
+
 	// -------------------------------------------------------------------------
 	// Bootstrap
 	// -------------------------------------------------------------------------
@@ -32,8 +35,9 @@ final class Dot_Agents_Press {
 		$this->load_dependencies();
 		$this->set_locale();
 
-		$this->agent = new DAP_Agent();
-		$this->api   = new DAP_API();
+		$this->agent    = new DAP_Agent();
+		$this->api      = new DAP_API();
+		$this->settings = new \DotAgentsPress\Settings();
 
 		if ( is_admin() ) {
 			$this->admin = new DAP_Admin();
@@ -82,6 +86,7 @@ final class Dot_Agents_Press {
 		require_once DAP_PLUGIN_DIR . 'includes/class-agent.php';
 		require_once DAP_PLUGIN_DIR . 'includes/class-admin.php';
 		require_once DAP_PLUGIN_DIR . 'includes/class-api.php';
+		require_once DAP_PLUGIN_DIR . 'app/Settings.php';
 	}
 
 	private function set_locale(): void {
