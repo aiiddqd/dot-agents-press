@@ -92,9 +92,12 @@ class Settings {
 				'type'              => 'object',
 				'sanitize_callback' => [ $this, 'sanitize' ],
 				'default'           => [
-					'api_token'     => '',
-					'default_model' => 'gpt-4o',
-					'max_tokens'    => 2048,
+					'telegram_bot_token'           => '',
+					'telegram_webhook_secret'      => '',
+					'telegram_default_agent_slug'  => '',
+					'telegram_authorized_user_id'  => '',
+					'default_model'                => 'deepseek/deepseek-v4-pro',
+					'max_tokens'                   => 2048,
 				],
 			]
 		);
@@ -136,14 +139,14 @@ class Settings {
 			[ 'label_for' => 'dap_webhook_secret' ]
 		);
 
-		// Field 4 — Default Agent ID
+		// Field 4 — Default Agent Slug
 		add_settings_field(
-			'telegram_default_agent_id',
-			__( 'Default Agent ID', 'dot-agents-press' ),
-			[ $this, 'field_default_agent_id' ],
+			'telegram_default_agent_slug',
+			__( 'Default Agent Slug', 'dot-agents-press' ),
+			[ $this, 'field_default_agent_slug' ],
 			self::PAGE_SLUG,
 			'dap_config_main',
-			[ 'label_for' => 'dap_default_agent_id' ]
+			[ 'label_for' => 'dap_default_agent_slug' ]
 		);
 
 		// Field 5 — Default Model
@@ -175,12 +178,12 @@ class Settings {
 		$sanitized = [];
 		$input     = is_array( $input ) ? $input : [];
 
-		$sanitized['telegram_bot_token']       = sanitize_text_field( $input['telegram_bot_token'] ?? '' );
-		$sanitized['telegram_webhook_secret']  = sanitize_text_field( $input['telegram_webhook_secret'] ?? '' );
-		$sanitized['telegram_default_agent_id']= sanitize_text_field( $input['telegram_default_agent_id'] ?? '' );
-		$sanitized['telegram_authorized_user_id'] = sanitize_text_field( $input['telegram_authorized_user_id'] ?? '' );
-		$sanitized['default_model']            = sanitize_text_field( $input['default_model'] ?? 'deepseek/deepseek-v4-pro' );
-		$sanitized['max_tokens']               = absint( $input['max_tokens'] ?? 2048 );
+		$sanitized['telegram_bot_token']           = sanitize_text_field( $input['telegram_bot_token'] ?? '' );
+		$sanitized['telegram_webhook_secret']      = sanitize_text_field( $input['telegram_webhook_secret'] ?? '' );
+		$sanitized['telegram_default_agent_slug']  = sanitize_text_field( $input['telegram_default_agent_slug'] ?? '' );
+		$sanitized['telegram_authorized_user_id']  = sanitize_text_field( $input['telegram_authorized_user_id'] ?? '' );
+		$sanitized['default_model']                = sanitize_text_field( $input['default_model'] ?? 'deepseek/deepseek-v4-pro' );
+		$sanitized['max_tokens']                   = absint( $input['max_tokens'] ?? 2048 );
 
 		if ( $sanitized['max_tokens'] < 1 ) {
 			$sanitized['max_tokens'] = 1;
@@ -251,17 +254,17 @@ class Settings {
 		echo '</p>';
 	}
 
-	public function field_default_agent_id( array $args ): void {
+	public function field_default_agent_slug( array $args ): void {
 		$options = get_option( self::OPTION_NAME, [] );
-		$value   = $options['telegram_default_agent_id'] ?? '';
+		$value   = $options['telegram_default_agent_slug'] ?? '';
 		printf(
-			'<input type="number" id="%1$s" name="%2$s[telegram_default_agent_id]" value="%3$s" class="small-text" min="1" step="1">',
+			'<input type="text" id="%1$s" name="%2$s[telegram_default_agent_slug]" value="%3$s" class="regular-text" placeholder="personal-assistant">',
 			esc_attr( $args['label_for'] ),
 			esc_attr( self::OPTION_NAME ),
 			esc_attr( $value )
 		);
 		echo '<p class="description">';
-		esc_html_e( 'ID of the agent that handles Telegram messages. Leave empty to use the first enabled agent.', 'dot-agents-press' );
+		esc_html_e( 'Slug of the agent (folder name in .agents/agents/) that handles Telegram messages. Leave empty to use the first enabled agent.', 'dot-agents-press' );
 		echo '</p>';
 	}
 
