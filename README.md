@@ -4,6 +4,22 @@
 
 ---
 
+## About the `.agents` Protocol
+
+This plugin is built in the spirit of the [.agents Protocol](https://dotagentsprotocol.com/) — an open directory convention for AI agent configuration.
+
+**Key ideas:**
+
+- **One directory (`.agents/`)** — houses everything an agent needs: MCP tools, `AGENTS.md` instructions, Skills, Sub-Agents, Tasks, and Memories. Plain JSON and Markdown, no proprietary schemas.
+- **Vendor-neutral** — works with any AI tool, editor, or agent framework. No lock-in.
+- **Git-friendly** — the entire agent configuration can be committed, diffed, branched, and shared.
+- **Layered** — global defaults at `~/.agents/`, workspace overrides at `./.agents/` (workspace wins on conflict).
+- **Seven standards, one place** — MCP, AGENTS.md, Skills, ACP, Sub-Agents, Tasks, and Memories converge in a single predictable directory.
+
+Dot Agents Press brings this vision to WordPress — giving you a first-class WP-Admin UI for creating and managing conversational AI agents that can be embedded anywhere via shortcodes or the REST API.
+
+---
+
 ## Features
 
 - **Manage multiple agents** from a dedicated WP-Admin menu

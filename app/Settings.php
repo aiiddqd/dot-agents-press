@@ -22,6 +22,7 @@ class Settings {
 	public function __construct() {
 		add_action( 'admin_menu', [ $this, 'add_page' ] );
 		add_action( 'admin_init', [ $this, 'register' ] );
+		add_filter( 'plugin_action_links_' . plugin_basename( DAP_PLUGIN_FILE ), [ $this, 'add_settings_link' ] );
 	}
 
 	// -------------------------------------------------------------------------
@@ -65,6 +66,18 @@ class Settings {
 			self::PAGE_SLUG,
 			[ $this, 'render' ]
 		);
+	}
+
+	/**
+	 * Add a «Settings» link on the Plugins list screen.
+	 *
+	 * @param array $links Existing action links.
+	 * @return array
+	 */
+	public function add_settings_link( array $links ): array {
+		$url = admin_url( 'options-general.php?page=' . self::PAGE_SLUG );
+		$links[] = '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Settings', 'dot-agents-press' ) . '</a>';
+		return $links;
 	}
 
 	// -------------------------------------------------------------------------
