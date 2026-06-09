@@ -1,0 +1,34 @@
+{
+  "toolConfig": {
+    "enabledBuiltinTools": [
+      "read_file",
+      "write_file",
+      "search_content",
+      "list_directory",
+      "execute_command",
+      "manage_tasks"
+    ],
+    "disabledServers": []
+  },
+  "modelConfig": {
+    "providerId": "openrouter",
+    "modelId": "deepseek/deepseek-v4-pro",
+    "temperature": 0.3,
+    "maxTokens": 8192
+  },
+  "connection": {
+    "type": "internal",
+    "channels": ["telegram", "web_chat", "rest_api"]
+  },
+  "routing": {
+    "keywords": [
+      "post", "page", "content", "publish", "edit",
+      "seo", "meta", "sitemap", "rank",
+      "update", "plugin", "theme", "backup",
+      "error", "bug", "fix", "broken", "issue",
+      "maintenance", "health", "performance", "cache",
+      "code", "php", "css", "javascript", "html",
+      "database", "sql", "query", "table"
+    ]
+  }
+}
