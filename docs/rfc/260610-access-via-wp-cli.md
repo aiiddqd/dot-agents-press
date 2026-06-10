@@ -1,40 +1,40 @@
-# RFC: WP-CLI команды для dot-agents-press
+# RFC: WP-CLI Commands for dot-agents-press
 
-**Статус:** Draft  
-**Автор:** aa  
-**Дата:** 2026-06-10
-
----
-
-## 1. Введение
-
-Плагин `dot-agents-press` уже предоставляет REST-эндпоинт `/wp-json/dot-agents-press/v1/chat` и шорткод `[dot_agent]` для работы с AI-агентами через браузер. Однако при автоматизации, отладке и работе через SSH удобнее обращаться к агентам напрямую из терминала — без curl и без браузера.
-
-Этот RFC описывает набор WP-CLI команд под неймспейсом `wp dap`, которые позволяют отправить сообщение агенту, получить ответ и проверить текущую конфигурацию.
+**Status:** Draft  
+**Author:** aa  
+**Date:** 2026-06-10
 
 ---
 
-## 2. Цели и причины
+## 1. Introduction
 
-### Цели
+The `dot-agents-press` plugin already provides the REST endpoint `/wp-json/dot-agents-press/v1/chat` and the `[dot_agent]` shortcode for working with AI agents via the browser. However, for automation, debugging, and SSH workflows, it is more convenient to interact with agents directly from the terminal, without curl and without a browser.
 
-- Добавить WP-CLI команду `wp dap chat` для отправки сообщения агенту по умолчанию прямо из терминала
-- Добавить команду `wp dap status` для просмотра провайдера, модели и доступных команд
-
-### Причины / Мотивация
-
-- Сейчас нельзя обратиться к агенту без браузера или ручного curl — это мешает автоматизации и отладке
-- При разработке промптов нужен быстрый цикл «изменил system_prompt → проверил ответ» без перезагрузки страницы
-- WP-CLI уже используется во всём проекте для автоматизации; агенты должны быть доступны в той же среде
-- Нужна возможность запускать агентов в CI/CD и cron-сценариях
+This RFC describes a set of WP-CLI commands under the `wp dap` namespace that allow sending a message to an agent, receiving a response, and checking the current configuration.
 
 ---
 
-## 3. Составляющие и особенности
+## 2. Goals and Motivation
 
-### 3.1. Неймспейс и точка входа
+### Goals
 
-Все команды регистрируются под `wp dap` через класс `Commands`, добавляемый в `app/Commands.php`.
+- Add the `wp dap chat` WP-CLI command to send a message to the default agent directly from the terminal
+- Add the `wp dap status` command to view the provider, model, and available commands
+
+### Motivation
+
+- At the moment, an agent cannot be reached without a browser or manual curl calls, which slows down automation and debugging
+- Prompt development needs a fast loop: "change `system_prompt` -> verify response" without page reloads
+- WP-CLI is already used across the project for automation, so agents should be available in the same environment
+- Agents should be runnable in CI/CD and cron scenarios
+
+---
+
+## 3. Components and Details
+
+### 3.1. Namespace and Entry Point
+
+All commands are registered under `wp dap` through the `Commands` class added to `app/Commands.php`.
 
 Регистрация:
 
@@ -44,47 +44,47 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 }
 ```
 
-Загрузка класса добавляется в `dot-agents-press.php` с проверкой `defined('WP_CLI') && WP_CLI`.
+Class loading is added in `dot-agents-press.php` with the `defined('WP_CLI') && WP_CLI` guard.
 
 ### 3.2. `wp dap chat`
 
-Отправляет одно сообщение агенту по умолчанию и выводит текст ответа в stdout.
+Sends a single message to the default agent and prints the response text to stdout.
 
-**Синтаксис:**
+**Syntax:**
 
 ```bash
 wp dap chat <message>
 ```
 
-**Аргументы:**
+**Arguments:**
 
-| Аргумент | Тип | Описание |
+| Argument | Type | Description |
 |---|---|---|
-| `<message>` | positional | Текст сообщения пользователя |
+| `<message>` | positional | User message text |
 
-**Пример:**
+**Example:**
 
 ```bash
-wp dap chat "Привет, что умеешь?"
+wp dap chat "Hi, what can you do?"
 ```
 
-**Вывод:** только текст ответа ассистента в stdout.
+**Output:** assistant response text only in stdout.
 
-**Агент:** первый `enabled = 1` агент из таблицы `dap_agents`. Если таких нет — ошибка с подсказкой.
+**Agent:** the first `enabled = 1` agent from the `dap_agents` table. If none exists, return an error with a hint.
 
-**Реализация:** вызывает `AgentsProtocol` напрямую, строя `messages` из одного элемента `[{"role":"user","content":"<message>"}]`.
+**Implementation:** calls `AgentsProtocol` directly, building `messages` from a single item `[{"role":"user","content":"<message>"}]`.
 
 ### 3.3. `wp dap status`
 
-Выводит текущую конфигурацию плагина: провайдер, модель, API-ключ (замаскирован), список доступных CLI-команд.
+Prints the current plugin configuration: provider, model, API key (masked), and a list of available CLI commands.
 
-**Синтаксис:**
+**Syntax:**
 
 ```bash
 wp dap status [--format=<format>]
 ```
 
-**Пример вывода:**
+**Example output:**
 
 ```
 dot-agents-press v1.2.0
@@ -99,11 +99,11 @@ Available commands:
   wp dap agents    Manage agents (list, get, enable, disable)
 ```
 
-**Источник данных:** `Settings::get()` для провайдера/модели/ключа; `DAP_Agent::get_all()` для списка агентов.
+**Data source:** `Settings::get()` for provider/model/key; `DAP_Agent::get_all()` for the agent list.
 
 ### 3.4. `wp dap agents list`
 
-Выводит таблицу зарегистрированных агентов.
+Prints a table of registered agents.
 
 ```bash
 wp dap agents list
@@ -115,64 +115,64 @@ wp dap agents list
 # +----+------------------+------------------+------------+---------------------------------+---------+
 ```
 
-Использует стандартный `WP_CLI\Utils\format_items()`, поддерживает `--format=table|json|csv|yaml`.
+Uses standard `WP_CLI\Utils\format_items()`, supports `--format=table|json|csv|yaml`.
 
-### 3.5. Обработка ошибок
+### 3.5. Error Handling
 
-- Нет API-ключа → `WP_CLI::error('API key is not configured. Run: wp dap status')` (exit code 1)
-- Нет ни одного enabled агента → `WP_CLI::error('No enabled agents found.')` (exit code 1)
-- Ответ API содержит ошибку → вывод сообщения ошибки из ответа + exit code 1
+- No API key -> `WP_CLI::error('API key is not configured. Run: wp dap status')` (exit code 1)
+- No enabled agents -> `WP_CLI::error('No enabled agents found.')` (exit code 1)
+- API response contains an error -> print the error message from the response and return exit code 1
 
-### Архитектурные решения
+### Architecture Decisions
 
-- **Переиспользование `AgentsProtocol`** вместо дублирования логики вызова AI — CLI-команда не знает про конкретного провайдера, она делегирует тому же слою что и REST API.
-- **Синхронный вызов** — WP-CLI синхронная среда, async не нужен. Если провайдер возвращает стрим, читаем полностью и выводим по завершении.
-- **Нет интерактивного режима** в первой версии — только single-turn (`chat <message>`). Multi-turn (history) — отдельный RFC.
-
----
-
-## 4. Критерии готовности
-
-- [ ] Файл `app/Commands.php` создан, класс `Commands` зарегистрирован под `wp dap`
-- [ ] `wp dap chat "text"` отправляет запрос и выводит ответ агента в stdout
-- [ ] `wp dap status` выводит провайдера, модель, маскированный API-ключ и список команд
-- [ ] `wp dap agents list` выводит таблицу агентов
-- [ ] Отсутствие API-ключа → корректная ошибка с подсказкой
-- [ ] Отсутствие enabled агентов → корректная ошибка
-
-### Тестирование
-
-- Ручное тестирование через `wp dap chat "test" --allow-root` в wp-env окружении
-- Проверка exit codes при ошибочных вводных
+- **Reuse `AgentsProtocol`** instead of duplicating AI call logic. The CLI command stays provider-agnostic and delegates to the same layer as the REST API.
+- **Synchronous execution**. WP-CLI is a synchronous environment, so async is unnecessary. If the provider returns a stream, read it fully and print when complete.
+- **No interactive mode** in v1. Single-turn only (`chat <message>`). Multi-turn (history) is a separate RFC.
 
 ---
 
-## 5. Дополнения
+## 4. Definition of Done
 
-**Зависимости:**
-- WP-CLI должен быть установлен в окружении (локально через `wp-env` — уже есть)
-- `AgentsProtocol.php` / `DAP_API` — реиспользуются без изменений
+- [ ] Create `app/Commands.php` and register the `Commands` class under `wp dap`
+- [ ] `wp dap chat "text"` sends a request and prints the agent response to stdout
+- [ ] `wp dap status` prints provider, model, masked API key, and command list
+- [ ] `wp dap agents list` prints an agents table
+- [ ] Missing API key -> proper error with hint
+- [ ] Missing enabled agents -> proper error
 
-**Риски:**
-- Длинные ответы (GPT-4o, большой контекст) — CLI может зависнуть в ожидании. Митигация: таймаут 60 сек через аргумент `--timeout`, вывод предупреждения если превышен.
-- API-ключ в логах shell history — ключ передаётся через WordPress Settings, а не через аргументы CLI, поэтому в `.bash_history` не попадает.
+### Testing
 
-**Out of scope (следующие итерации):**
-- `--agent=<slug>` для выбора конкретного агента
-- `--format=json` для пайпинга
-- `--stream` для потокового вывода
-- `wp dap agents enable/disable` для управления агентами из CLI
-- `wp dap set-provider` для смены провайдера/модели
+- Manual test via `wp dap chat "test" --allow-root` in a wp-env environment
+- Verify exit codes for invalid/error scenarios
 
-**Связанные материалы:**
+---
+
+## 5. Additions
+
+**Dependencies:**
+- WP-CLI must be installed in the environment (already available locally via `wp-env`)
+- `AgentsProtocol.php` / `DAP_API` are reused without changes
+
+**Risks:**
+- Long responses (GPT-4o, large context) may cause CLI waiting/hanging. Mitigation: 60s timeout via `--timeout`, print a warning if exceeded.
+- API key leakage in shell history. The key is passed via WordPress Settings, not CLI arguments, so it does not appear in `.bash_history`.
+
+**Out of scope (next iterations):**
+- `--agent=<slug>` to select a specific agent
+- `--format=json` for piping
+- `--stream` for streaming output
+- `wp dap agents enable/disable` to manage agents from CLI
+- `wp dap set-provider` to change provider/model
+
+**Related materials:**
 - REST API: `includes/class-api.php`
-- Настройки провайдера: `app/Settings.php`
-- Модель агента: `includes/class-agent.php`
-- Текущий ROADMAP: `ROADMAP.md`
+- Provider settings: `app/Settings.php`
+- Agent model: `includes/class-agent.php`
+- Current roadmap: `ROADMAP.md`
 
 ---
 
-## 6. Выводы
+## 6. Conclusion
 
-MVP: три команды — `wp dap chat <message>`, `wp dap status`, `wp dap agents list`. Минимальная реализация в `app/Commands.php`, переиспользует `AgentsProtocol`. Закрывает основной сценарий: написать агенту и получить ответ из терминала. Опции `--agent`, `--format`, `--stream` и управление агентами — в следующих итерациях.
+MVP: three commands, `wp dap chat <message>`, `wp dap status`, and `wp dap agents list`. The minimal implementation lives in `app/Commands.php` and reuses `AgentsProtocol`. It covers the core scenario: message an agent and get a response from the terminal. Options like `--agent`, `--format`, `--stream`, and agent management are planned for future iterations.
 
