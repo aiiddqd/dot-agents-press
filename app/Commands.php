@@ -49,11 +49,11 @@ class Commands extends \WP_CLI_Command {
 			]
 		);
 
-		if ( empty( $agents ) ) {
-			\WP_CLI::error( 'No enabled agents found.' );
-		}
+		$agent = $agents[0] ?? AgentsProtocol::first_enabled_agent();
 
-		$agent = $agents[0];
+		if ( ! $agent ) {
+			\WP_CLI::error( 'No enabled agents found. Enable one in dap_agents or add an enabled agent in .agents/agents/<slug>/agent.md.' );
+		}
 
 		$api_key = dot_agents_press()->agent->resolve_api_key( $agent );
 		if ( $api_key === '' ) {
