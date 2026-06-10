@@ -205,7 +205,7 @@ class Commands extends \WP_CLI_Command {
 
 		foreach ( AgentsProtocol::list_agents() as $agent ) {
 			$items[] = [
-				'id'       => (int) $agent->id,
+				'id'       => (string) $agent->id,
 				'slug'     => (string) $agent->slug,
 				'name'     => (string) $agent->name,
 				'provider' => (string) $agent->provider,
