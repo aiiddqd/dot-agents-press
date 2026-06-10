@@ -134,6 +134,7 @@ class AgentsProtocol {
 		$settings = dot_agents_press()->settings();
 
 		return (object) [
+			'id'           => $frontmatter['id'] ?? $slug,
 			'slug'          => $slug,
 			'name'          => $frontmatter['name'] ?? $slug,
 			'description'   => $frontmatter['description'] ?? '',

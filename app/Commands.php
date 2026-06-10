@@ -41,15 +41,7 @@ class Commands extends \WP_CLI_Command {
 			\WP_CLI::error( 'Message is required. Usage: wp dap chat <message>' );
 		}
 
-		$agents = dot_agents_press()->agent->get_all(
-			[
-				'enabled'  => true,
-				'per_page' => 1,
-				'offset'   => 0,
-			]
-		);
-
-		$agent = $agents[0] ?? AgentsProtocol::first_enabled_agent();
+		$agent = AgentsProtocol::first_enabled_agent();
 
 		if ( ! $agent ) {
 			\WP_CLI::error( 'No enabled agents found. Enable one in dap_agents or add an enabled agent in .agents/agents/<slug>/agent.md.' );
@@ -137,7 +129,7 @@ class Commands extends \WP_CLI_Command {
 	 */
 	public function status(): void {
 		$settings = dot_agents_press()->settings();
-		$agents   = dot_agents_press()->agent->get_all( [ 'per_page' => 500, 'offset' => 0 ] );
+		$agents   = AgentsProtocol::list_agents();
 
 		$enabled_count = 0;
 		$active_agent  = null;
@@ -211,7 +203,7 @@ class Commands extends \WP_CLI_Command {
 		$format = isset( $assoc_args['format'] ) ? (string) $assoc_args['format'] : 'table';
 		$items  = [];
 
-		foreach ( dot_agents_press()->agent->get_all( [ 'per_page' => 1000, 'offset' => 0 ] ) as $agent ) {
+		foreach ( AgentsProtocol::list_agents() as $agent ) {
 			$items[] = [
 				'id'       => (int) $agent->id,
 				'slug'     => (string) $agent->slug,
