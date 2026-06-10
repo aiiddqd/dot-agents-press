@@ -45,6 +45,7 @@ final class Dot_Agents_Press {
 
 		add_action( 'rest_api_init', [ $this->telegram_bridge, 'register_routes' ] );
 		$this->register_cli_commands();
+		$this->register_abilities();
 
 		if ( is_admin() ) {
 			$this->admin = new DAP_Admin();
@@ -111,6 +112,8 @@ final class Dot_Agents_Press {
 		require_once DAP_PLUGIN_DIR . 'app/Commands.php';
 		require_once DAP_PLUGIN_DIR . 'app/AgentsProtocol.php';
 		require_once DAP_PLUGIN_DIR . 'app/TelegramBridge.php';
+		require_once DAP_PLUGIN_DIR . 'abilities/base.php';
+		require_once DAP_PLUGIN_DIR . 'abilities/registry.php';
 	}
 
 	private function set_locale(): void {
@@ -132,5 +135,15 @@ final class Dot_Agents_Press {
 		}
 
 		call_user_func( [ '\\WP_CLI', 'add_command' ], 'dap', \DotAgentsPress\Commands::class );
+	}
+
+	/**
+	 * Register all abilities from the abilities/ directory.
+	 */
+	private function register_abilities(): void {
+		add_action( 'dot_agents_press_loaded', function () {
+			$registry = new \DotAgentsPress\Abilities\Registry();
+			$registry->register_all();
+		} );
 	}
 }

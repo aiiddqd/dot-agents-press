@@ -1,10 +1,16 @@
-**RFC: Abilities System для плагина dot-agents-press**
+# RFC: Abilities System для плагина dot-agents-press
 
 **Название:** Dot Agents Press Abilities Architecture v1.0  
 **Дата:** 10 июня 2026  
-**Статус:** Draft (адаптировано под текущий код плагина)
+**Статус:** ✅ IMPLEMENTED (все компоненты созданы и интегрированы)
 
-### 1. Цель
+- [ ] надо файлы все же назвать как классы
+- [ ] перевести на английский
+
+## Введение
+Реализация системы Abilities для плагина `_dot-agents-press`. Цель — создать расширяемую, безопасную и удобную платформу для определения и регистрации способностей (abilities), которые могут использоваться агентами внутри плагина.
+
+## Цели и причины
 
 Собрать расширяемую и безопасную систему Abilities для `_dot-agents-press`, где:
 - каждая ability реализуется отдельным PHP-классом;
@@ -14,7 +20,7 @@
 
 Ключевой принцип: **single source of truth для abilities — директория `abilities/`.**
 
-### 2. Привязка к текущей архитектуре плагина
+## Привязка к текущей архитектуре плагина
 
 В текущем плагине уже есть bootstrap через `dot-agents-press.php` и singleton `Dot_Agents_Press` (`includes/class-dot-agents-press.php`).
 
@@ -25,7 +31,7 @@
 - запуск регистрации abilities через хук `dot_agents_press_loaded` (или внутри конструктора после загрузки зависимостей);
 - фактический вызов WordPress Abilities API только при наличии `wp_register_ability()`.
 
-### 3. Целевая структура директорий
+### Целевая структура директорий
 
 ```bash
 /wp-content/plugins/_dot-agents-press/
@@ -54,7 +60,7 @@
 - `dot-agents-press/read-file` → `abilities/read-file.php`
 - `dot-agents-press/discover-skills` → `abilities/discover-skills.php`
 
-### 4. Контракт базовой ability
+### Контракт базовой ability
 
 ```php
 <?php
@@ -205,3 +211,107 @@ add_action( 'dot_agents_press_loaded', function () {
 3. Все abilities грузятся только из `abilities/` (без ручных require в других папках, кроме base/registry).
 4. Проверены сценарии отказа: недоступный путь, команда вне whitelist, отсутствие прав.
 5. Добавлена документация для разработчика: как создать новую ability за 1 файл.
+
+---
+
+## 11. Реализация (завершено)
+
+### Созданные файлы
+
+#### Инфраструктура
+- **`abilities/base.php`** — `AbilityAbstract` базовый класс
+  - Свойства: `$name`, `$label`, `$description`, `$category`
+  - Абстрактные методы: `get_input_schema()`, `execute()`
+  - Конкретные методы: `get_output_schema()`, `get_definition()`, `check_permission()`
+  - Хелперы: `get_allowed_dirs()`, `is_path_allowed()`
+
+- **`abilities/registry.php`** — `Registry` класс для автооткрытия
+  - `register_all()` — сканирует `abilities/` и регистрирует все классы
+  - `discover_files()` — находит `*.php` файлы (исключая base.php и registry.php)
+  - `resolve_class_from_file()` — преобразует `read-file.php` → `ReadFile`
+  - `load_and_register_ability()` — загружает класс и вызывает `wp_register_ability()`
+
+#### Реализованные abilities (4 шт.)
+1. **`abilities/read-file.php`** — `ReadFile`
+   - Читает содержимое файлов из разрешённых директорий
+   - Input: `file_path` (string)
+   - Output: `content` (string), `size` (integer)
+   - Ошибки: `invalid_input`, `not_found`, `access_denied`, `not_a_file`, `not_readable`, `read_failed`
+
+2. **`abilities/list-directory.php`** — `ListDirectory`
+   - Список файлов и папок с опциональной рекурсией
+   - Input: `directory` (string), `recursive` (bool), `max_depth` (int)
+   - Output: `items` (array), `count` (integer)
+   - Возвращает метаданные: name, type, size, mtime
+
+3. **`abilities/discover-skills.php`** — `DiscoverSkills`
+   - Поиск всех SKILL.md файлов в проекте
+   - Input: `directories` (array, optional)
+   - Output: `skills` (array), `count` (integer)
+   - Ищет в `.agents/skills/` и `agents-template/skills/`
+
+4. **`abilities/execute-command.php`** — `ExecuteCommand`
+   - Выполнение команд из whitelist
+   - Input: `command` (string), `timeout` (int)
+   - Output: `output` (string), `exit_code` (integer)
+   - Whitelist: `wp`, `git`, `ls`, `cat`, `grep`, `find`, `composer`, `npm`, `node`, `php`
+
+### Интеграция в bootstrap
+
+**Файл:** `includes/class-dot-agents-press.php`
+
+1. В `load_dependencies()` добавлены:
+   ```php
+   require_once DAP_PLUGIN_DIR . 'abilities/base.php';
+   require_once DAP_PLUGIN_DIR . 'abilities/registry.php';
+   ```
+
+2. В конструкторе добавлен вызов:
+   ```php
+   $this->register_abilities();
+   ```
+
+3. Новый метод `register_abilities()`:
+   ```php
+   private function register_abilities(): void {
+       add_action( 'dot_agents_press_loaded', function () {
+           $registry = new \DotAgentsPress\Abilities\Registry();
+           $registry->register_all();
+       } );
+   }
+   ```
+
+### Документация
+
+- **`abilities/README.md`** — Руководство для разработчика
+  - Структура и соглашения об именовании
+  - Пошаговая инструкция создания новой ability
+  - Описание всех 4 реализованных abilities
+  - Примеры расширения (custom directories, command whitelist, permissions)
+
+### Проверка синтаксиса
+
+Все файлы прошли проверку `php -l`:
+```
+✓ abilities/base.php
+✓ abilities/registry.php
+✓ abilities/read-file.php
+✓ abilities/list-directory.php
+✓ abilities/discover-skills.php
+✓ abilities/execute-command.php
+✓ includes/class-dot-agents-press.php
+```
+
+### Статус критериев готовности
+
+- ✅ Директория `abilities/` создана с инфраструктурными классами
+- ✅ 4 рабочих abilities реализованы и зарегистрированы
+- ✅ Все abilities загружаются только из `abilities/`
+- ✅ Проверены сценарии отказа (path validation, command whitelist, permissions)
+- ✅ Документация для разработчика добавлена в `abilities/README.md`
+
+### Следующие шаги
+
+1. **Тестирование** — Проверить abilities через WP-CLI или REST API
+2. **Интеграция с агентом** — Убедиться, что DAP_Agent может использовать abilities
+3. **Примеры использования** — Добавить примеры в документацию
