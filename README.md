@@ -196,6 +196,14 @@ wp dap telegram delete-webhook   # Remove the webhook
 wp dap telegram status           # Show current webhook info
 ```
 
+### WP-CLI quick reference
+
+```bash
+wp dap chat "Your message"       # Send a single message to the first enabled agent
+wp dap status                     # Show active provider/model, API key mask, and command list
+wp dap agents list                # List registered agents (use --format=json|csv|yaml)
+```
+
 ### How it works
 
 ```
