@@ -108,6 +108,7 @@ final class Dot_Agents_Press {
 		require_once DAP_PLUGIN_DIR . 'includes/class-admin.php';
 		require_once DAP_PLUGIN_DIR . 'includes/class-api.php';
 		require_once DAP_PLUGIN_DIR . 'app/Settings.php';
+		require_once DAP_PLUGIN_DIR . 'app/Commands.php';
 		require_once DAP_PLUGIN_DIR . 'app/AgentsProtocol.php';
 		require_once DAP_PLUGIN_DIR . 'app/TelegramBridge.php';
 	}
@@ -130,47 +131,6 @@ final class Dot_Agents_Press {
 			return;
 		}
 
-		\WP_CLI::add_command( 'dap telegram set-webhook', function () {
-			$result = dot_agents_press()->telegram_bridge()->set_webhook();
-			if ( $result ) {
-				\WP_CLI::success( 'Telegram webhook set successfully.' );
-			} else {
-				\WP_CLI::error( 'Failed to set Telegram webhook. Check your bot token in settings.' );
-			}
-		} );
-
-		\WP_CLI::add_command( 'dap telegram delete-webhook', function () {
-			$result = dot_agents_press()->telegram_bridge()->delete_webhook();
-			if ( $result ) {
-				\WP_CLI::success( 'Telegram webhook deleted.' );
-			} else {
-				\WP_CLI::error( 'Failed to delete Telegram webhook.' );
-			}
-		} );
-
-		\WP_CLI::add_command( 'dap telegram status', function () {
-			$token = dot_agents_press()->settings()->get( 'telegram_bot_token', '' );
-			if ( ! $token ) {
-				\WP_CLI::error( 'Telegram bot token not configured in settings.' );
-			}
-
-			$response = wp_remote_get( "https://api.telegram.org/bot{$token}/getWebhookInfo", [ 'timeout' => 10 ] );
-			if ( is_wp_error( $response ) ) {
-				\WP_CLI::error( $response->get_error_message() );
-			}
-
-			$data = json_decode( wp_remote_retrieve_body( $response ), true );
-			if ( empty( $data['ok'] ) ) {
-				\WP_CLI::error( 'Failed to get webhook info.' );
-			}
-
-			$info = $data['result'];
-			\WP_CLI::log( sprintf( 'URL:             %s', $info['url'] ?? '(none)' ) );
-			\WP_CLI::log( sprintf( 'Has custom cert: %s', ! empty( $info['has_custom_certificate'] ) ? 'yes' : 'no' ) );
-			\WP_CLI::log( sprintf( 'Pending updates: %d', $info['pending_update_count'] ?? 0 ) );
-			if ( ! empty( $info['last_error_message'] ) ) {
-				\WP_CLI::warning( sprintf( 'Last error: %s (date: %s)', $info['last_error_message'], $info['last_error_date'] ?? 'unknown' ) );
-			}
-		} );
+		call_user_func( [ '\\WP_CLI', 'add_command' ], 'dap', \DotAgentsPress\Commands::class );
 	}
 }
