@@ -109,11 +109,28 @@ final class Dot_Agents_Press {
 		require_once DAP_PLUGIN_DIR . 'includes/class-admin.php';
 		require_once DAP_PLUGIN_DIR . 'includes/class-api.php';
 		require_once DAP_PLUGIN_DIR . 'app/Settings.php';
-		require_once DAP_PLUGIN_DIR . 'app/Commands.php';
+		if ( $this->is_wp_cli_runtime() ) {
+			require_once DAP_PLUGIN_DIR . 'app/Commands.php';
+		}
 		require_once DAP_PLUGIN_DIR . 'app/AgentsProtocol.php';
 		require_once DAP_PLUGIN_DIR . 'app/TelegramBridge.php';
 		require_once DAP_PLUGIN_DIR . 'abilities/base.php';
 		require_once DAP_PLUGIN_DIR . 'abilities/registry.php';
+	}
+
+	/**
+	 * Returns true when plugin code is running inside a real WP-CLI process.
+	 */
+	private function is_wp_cli_runtime(): bool {
+		if ( ! defined( 'WP_CLI' ) || ! WP_CLI ) {
+			return false;
+		}
+
+		if ( PHP_SAPI !== 'cli' && PHP_SAPI !== 'phpdbg' ) {
+			return false;
+		}
+
+		return class_exists( '\\WP_CLI_Command' );
 	}
 
 	private function set_locale(): void {
@@ -130,7 +147,7 @@ final class Dot_Agents_Press {
 	 * Register WP-CLI commands (if WP-CLI is available).
 	 */
 	public function register_cli_commands(): void {
-		if ( ! defined( 'WP_CLI' ) || ! WP_CLI ) {
+		if ( ! $this->is_wp_cli_runtime() || ! class_exists( \DotAgentsPress\Commands::class ) ) {
 			return;
 		}
 

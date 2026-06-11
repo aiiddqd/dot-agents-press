@@ -9,6 +9,10 @@ namespace DotAgentsPress;
 
 defined( 'ABSPATH' ) || exit;
 
+if ( ! defined( 'WP_CLI' ) || ! WP_CLI || ! class_exists( '\\WP_CLI_Command' ) ) {
+	return;
+}
+
 /**
  * CLI command group for `wp dap`.
  */
