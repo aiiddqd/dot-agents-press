@@ -17,12 +17,14 @@
  * @package Dot_Agents_Press
  */
 
+namespace DotAgentsPress;
+
 defined( 'ABSPATH' ) || exit;
 
 use DotAgentsPress\AgentsProtocol;
 
 /** Registers the REST route and the [dot_agent] shortcode. */
-class DAP_API {
+class Api {
 
 	private const REST_NAMESPACE = 'dot-agents-press/v1';
 

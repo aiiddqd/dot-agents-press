@@ -21,15 +21,15 @@ define( 'DAP_PLUGIN_FILE', __FILE__ );
 define( 'DAP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DAP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
-require_once DAP_PLUGIN_DIR . 'includes/class-dot-agents-press.php';
+require_once DAP_PLUGIN_DIR . 'includes/Main.php';
 
 /**
  * Returns the main plugin instance.
  *
- * @return Dot_Agents_Press
+	 * @return \DotAgentsPress\Main
  */
-function dot_agents_press(): Dot_Agents_Press {
-	return Dot_Agents_Press::instance();
+function dot_agents_press(): \DotAgentsPress\Main {
+	return \DotAgentsPress\Main::instance();
 }
 
 dot_agents_press();

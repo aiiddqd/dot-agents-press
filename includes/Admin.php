@@ -5,10 +5,12 @@
  * @package Dot_Agents_Press
  */
 
+namespace DotAgentsPress;
+
 defined( 'ABSPATH' ) || exit;
 
 /** Registers and renders all WP-Admin pages for the plugin. */
-class DAP_Admin {
+class Admin {
 
 	private const MENU_SLUG     = 'dot-agents-press';
 	private const CAP_MANAGE    = 'manage_options';

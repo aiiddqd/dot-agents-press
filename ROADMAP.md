@@ -1,7 +1,7 @@
 # Roadmap
 
 ## v0.2
-- [ ] all classes in ./includes - add namespace DotAgentsPress; and move classes from ./app to ./includes
+- [x] all classes in ./includes - add namespace DotAgentsPress; and move classes from ./app to ./includes
 - [ ] Implement [docs/rfc/260712-neuron-ai-integration.md](./docs/rfc/260712-neuron-ai-integration.md) — integration of Neuron AI with the plugin, including webhook handling, message processing, and admin panel settings.
 - ✅ research ./bot and [RFC](./bot/rfc/) and make RFC about its implementation for the plugin here docs/rfc.
   - **Result:** [RFC: Bitrix24 Bot Integration](./docs/rfc/260712-bitrix24-bot-integration.md) — comprehensive design for integrating the standalone bot as a plugin messenger bridge

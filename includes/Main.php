@@ -2,33 +2,35 @@
 /**
  * Main plugin class – bootstraps all subsystems.
  *
- * @package Dot_Agents_Press
+ * @package DotAgentsPress
  */
+
+namespace DotAgentsPress;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
  * Singleton that wires together all plugin components.
  */
-final class Dot_Agents_Press {
+final class Main {
 
-	/** @var Dot_Agents_Press|null */
-	private static ?Dot_Agents_Press $instance = null;
+	/** @var Main|null */
+	private static ?Main $instance = null;
 
-	/** @var DAP_Agent */
-	public DAP_Agent $agent;
+	/** @var Agent */
+	public Agent $agent;
 
-	/** @var DAP_Admin */
-	public DAP_Admin $admin;
+	/** @var Admin */
+	public Admin $admin;
 
-	/** @var DAP_API */
-	public DAP_API $api;
+	/** @var Api */
+	public Api $api;
 
-	/** @var \DotAgentsPress\Settings */
-	private \DotAgentsPress\Settings $settings;
+	/** @var Settings */
+	private Settings $settings;
 
-	/** @var \DotAgentsPress\TelegramBridge */
-	private \DotAgentsPress\TelegramBridge $telegram_bridge;
+	/** @var TelegramBridge */
+	private TelegramBridge $telegram_bridge;
 
 	// -------------------------------------------------------------------------
 	// Bootstrap
@@ -38,17 +40,17 @@ final class Dot_Agents_Press {
 		$this->load_dependencies();
 		$this->set_locale();
 
-		$this->agent           = new DAP_Agent();
-		$this->api             = new DAP_API();
-		$this->settings        = new \DotAgentsPress\Settings();
-		$this->telegram_bridge = new \DotAgentsPress\TelegramBridge();
+		$this->agent           = new Agent();
+		$this->api             = new Api();
+		$this->settings        = new Settings();
+		$this->telegram_bridge = new TelegramBridge();
 
 		add_action( 'rest_api_init', [ $this->telegram_bridge, 'register_routes' ] );
 		$this->register_cli_commands();
 		$this->register_abilities();
 
 		if ( is_admin() ) {
-			$this->admin = new DAP_Admin();
+			$this->admin = new Admin();
 		}
 
 		add_action( 'plugins_loaded', [ $this, 'on_plugins_loaded' ] );
@@ -71,12 +73,12 @@ final class Dot_Agents_Press {
 	// -------------------------------------------------------------------------
 
 	/** Returns the Settings instance. */
-	public function settings(): \DotAgentsPress\Settings {
+	public function settings(): Settings {
 		return $this->settings;
 	}
 
 	/** Returns the TelegramBridge instance. */
-	public function telegram_bridge(): \DotAgentsPress\TelegramBridge {
+	public function telegram_bridge(): TelegramBridge {
 		return $this->telegram_bridge;
 	}
 
@@ -105,15 +107,15 @@ final class Dot_Agents_Press {
 	// -------------------------------------------------------------------------
 
 	private function load_dependencies(): void {
-		require_once DAP_PLUGIN_DIR . 'includes/class-agent.php';
-		require_once DAP_PLUGIN_DIR . 'includes/class-admin.php';
-		require_once DAP_PLUGIN_DIR . 'includes/class-api.php';
-		require_once DAP_PLUGIN_DIR . 'app/Settings.php';
+		require_once DAP_PLUGIN_DIR . 'includes/Agent.php';
+		require_once DAP_PLUGIN_DIR . 'includes/Admin.php';
+		require_once DAP_PLUGIN_DIR . 'includes/Api.php';
+		require_once DAP_PLUGIN_DIR . 'includes/Settings.php';
 		if ( $this->is_wp_cli_runtime() ) {
-			require_once DAP_PLUGIN_DIR . 'app/Commands.php';
+			require_once DAP_PLUGIN_DIR . 'includes/Commands.php';
 		}
-		require_once DAP_PLUGIN_DIR . 'app/AgentsProtocol.php';
-		require_once DAP_PLUGIN_DIR . 'app/TelegramBridge.php';
+		require_once DAP_PLUGIN_DIR . 'includes/AgentsProtocol.php';
+		require_once DAP_PLUGIN_DIR . 'includes/TelegramBridge.php';
 		require_once DAP_PLUGIN_DIR . 'abilities/base.php';
 		require_once DAP_PLUGIN_DIR . 'abilities/registry.php';
 	}
@@ -147,11 +149,11 @@ final class Dot_Agents_Press {
 	 * Register WP-CLI commands (if WP-CLI is available).
 	 */
 	public function register_cli_commands(): void {
-		if ( ! $this->is_wp_cli_runtime() || ! class_exists( \DotAgentsPress\Commands::class ) ) {
+		if ( ! $this->is_wp_cli_runtime() || ! class_exists( Commands::class ) ) {
 			return;
 		}
 
-		call_user_func( [ '\\WP_CLI', 'add_command' ], 'dap', \DotAgentsPress\Commands::class );
+		call_user_func( [ '\\WP_CLI', 'add_command' ], 'dap', Commands::class );
 	}
 
 	/**
