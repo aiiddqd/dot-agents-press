@@ -30,17 +30,9 @@
 ### 1.1 Структура бота в папке
 
 ```
-bot/
-├── .env                    # Конфигурация (токены, ключи AI)
-├── src/
-│   ├── config.php         # Загрузка переменных окружения
-│   ├── ai.php             # Интеграция с Neuron AI
-│   ├── logic.php          # Логика маршрутизации и ответов
-│   ├── handler.php        # Webhook-обработчик (точка входа)
-│   └── fetch.php          # Polling-обработчик (для тестирования)
+./
 ├── vendor/                # Зависимости (Neuron AI через Composer)
 ├── composer.json
-└── .env.example
 ```
 
 ### 1.2 Текущие возможности
@@ -58,20 +50,20 @@ bot/
 
 ### 1.3 Текущая конфигурация
 
-Переменные окружения в `.env`:
+Константы в `wp-config.php`:
 
 ```
-TELEGRAM_BOT_TOKEN=123456:ABC...
-TELEGRAM_WEBHOOK_SECRET=secret_key
+define( 'DAP_TELEGRAM_BOT_TOKEN', '123456:ABC...' );
+define( 'DAP_TELEGRAM_WEBHOOK_SECRET', 'secret_key' );
 
-# Neuron AI провайдер (OpenRouter)
-AI_PROVIDER=openrouter
-OPENROUTER_API_KEY=sk-or-v1-...
-OPENROUTER_MODEL=deepseek/deepseek-chat
+// Neuron AI провайдер (OpenRouter)
+define( 'DAP_AI_PROVIDER', 'openrouter' );
+define( 'OPENROUTER_API_KEY', 'sk-or-v1-...' );
+define( 'DAP_OPENROUTER_MODEL', 'deepseek/deepseek-chat' );
 
-# .agents контекст
-AI_READ_AGENTS_CONTEXT=1
-AI_READ_DOCS_CONTEXT=1
+// .agents контекст
+define( 'DAP_AI_READ_AGENTS_CONTEXT', true );
+define( 'DAP_AI_READ_DOCS_CONTEXT', true );
 ```
 
 **Зависимости:** Бот использует `neuron-core/neuron-ai` через Composer (`composer.json`).
@@ -92,20 +84,15 @@ AI_READ_DOCS_CONTEXT=1
 
 ```
 _dot-agents-press/
-├── app/
-│   ├── TelegramBridge/
-│   │   ├── class-bridge.php           ← Основной класс интеграции
-│   │   ├── class-webhook-handler.php  ← Обработка вебхука от Telegram
-│   │   └── class-settings.php         ← Настройки Telegram (в опциях WP)
-│   ├── Settings.php                   ← ИЗМЕНЕНИЕ: добавить telegram_* поля
-│   └── [другие классы]
 ├── includes/
-│   ├── class-api.php                  ← ИЗМЕНЕНИЕ: зарегистрировать маршрут вебхука
-│   ├── class-agent.php                ← БЕЗ ИЗМЕНЕНИЙ (переиспользуем)
+│   ├── TelegramBridge.php             ← Основной класс: webhook + отправка ответа в Telegram
+│   ├── Settings.php                   ← Telegram-поля настроек (token, secret, default agent, user id)
+│   ├── Api.php                        ← Переиспользуем `handle_chat()` для AI-ответа
+│   ├── Agent.php                      ← БЕЗ ИЗМЕНЕНИЙ (переиспользуем)
+│   ├── Main.php                       ← Инициализация `TelegramBridge` и регистрация `rest_api_init`
 │   └── [остальное]
-├── admin/
-│   └── views/
-│       └── settings.php               ← ИЗМЕНЕНИЕ: вкладка "Telegram Bot"
+├── views/
+│   └── settings.php                   ← ИЗМЕНЕНИЕ: секция настроек Telegram
 ├── bot/                               ← СОХРАНИТЬ: для standalone режима
 │   └── [существующая структура]
 └── dot-agents-press.php               ← ИЗМЕНЕНИЕ: загрузить новые классы
@@ -116,15 +103,15 @@ _dot-agents-press/
 **Telegram → WordPress:**
 1. Пользователь отправляет сообщение боту в Telegram
 2. Telegram API отправляет webhook на `POST /wp-json/dot-agents-press/v1/telegram/webhook`
-3. `TelegramWebhookHandler` распарсивает payload и валидирует подпись
-4. Вызывает `TelegramBridge::handle_message()`
+3. `TelegramBridge::handle_webhook()` распарсивает payload и валидирует подпись
+4. `TelegramBridge` определяет агента и готовит запрос в API-пайплайн плагина
 
 **WordPress → AI → Telegram:**
-1. `TelegramBridge` вызывает `DAP_Agent::chat()` из плагина
-2. `DAP_Agent` использует WP AI Client (через `wp_ai_client_prompt()`)
+1. `TelegramBridge` создаёт внутренний `WP_REST_Request` и вызывает `Api::handle_chat()`
+2. `Api::handle_chat()` использует `Agent`/WP AI Client (через `wp_ai_client_prompt()`)
 3. Система автоматически применяет `.agents/system-prompt.md` (если есть)
 4. Получает ответ от AI-провайдера
-5. `TelegramBridge::send_response()` отправляет ответ обратно в Telegram через Bot API
+5. `TelegramBridge::send_message()` отправляет ответ обратно в Telegram через Bot API
 
 ### 2.4 WordPress hooks и фильтры
 
@@ -165,8 +152,8 @@ _dot-agents-press/
 - Интеграция с `DAP_Agent`
 
 **Результаты:**
-- `app/TelegramBridge/class-bridge.php` — основной класс
-- `app/TelegramBridge/class-webhook-handler.php` — обработчик вебхука
+- `includes/TelegramBridge.php` — основной класс (webhook + отправка ответа)
+- Регистрация `rest_api_init` в `includes/Main.php` для маршрута Telegram
 - Регистрация маршрута `/wp-json/dot-agents-press/v1/telegram/webhook`
 - Поля настроек в админ-панели
 - Локальное тестирование
@@ -223,7 +210,7 @@ _dot-agents-press/
 | Компонент | Требование | Статус |
 |---|---|---|
 | **Neuron AI** | `neuron-core/neuron-ai` через Composer | ✅ Основная зависимость |
-| **OpenRouter API** | API ключ в переменных окружения | ✅ Обязателен |
+| **OpenRouter API** | API ключ в константе `OPENROUTER_API_KEY` (`wp-config.php`) | ✅ Обязателен |
 | **.agents контекст** | Читается автоматически через DAP_Agent | ✅ Работает |
 | **Вики-знания** | Читаются из `/src/content/docs/` | ✅ Работает |
 | **WP AI Client** | Используется для интеграции с плагином | ✅ Встроен |
@@ -269,9 +256,9 @@ _dot-agents-press/
 
 Для пользователей, запускающих бота отдельно:
 
-1. **Бэкап** переменных окружения (`.env`)
+1. **Проверить** значения констант в `wp-config.php`
 2. **Установить** версию плагина (v0.2+)
-3. **Перенести** значения из `.env` в опции WordPress
+3. **Перенести** значения из констант в опции WordPress (если нужен UI-режим)
 4. **Установить** вебхук через админ-панель плагина
 5. **Деактивировать** standalone-бота (или запускать параллельно во время переходного периода)
 

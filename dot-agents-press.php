@@ -26,7 +26,7 @@ require_once DAP_PLUGIN_DIR . 'includes/Main.php';
 /**
  * Returns the main plugin instance.
  *
-	 * @return \DotAgentsPress\Main
+ * @return \DotAgentsPress\Main
  */
 function dot_agents_press(): \DotAgentsPress\Main {
 	return \DotAgentsPress\Main::instance();
