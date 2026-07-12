@@ -245,7 +245,7 @@ class Api {
 		}
 
 		ob_start();
-		require DAP_PLUGIN_DIR . 'public/views/chat-widget.php';
+		require DAP_PLUGIN_DIR . 'views/chat-widget.php';
 		return ob_get_clean() ?: '';
 	}
 
@@ -260,14 +260,14 @@ class Api {
 
 		wp_register_style(
 			'dap-chat',
-			DAP_PLUGIN_URL . 'public/css/chat.css',
+			DAP_PLUGIN_URL . 'static/public/css/chat.css',
 			[],
 			DAP_VERSION
 		);
 
 		wp_register_script(
 			'dap-chat',
-			DAP_PLUGIN_URL . 'public/js/chat.js',
+			DAP_PLUGIN_URL . 'static/public/js/chat.js',
 			[],
 			DAP_VERSION,
 			true

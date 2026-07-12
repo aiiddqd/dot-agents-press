@@ -89,14 +89,14 @@ class Admin {
 
 		wp_enqueue_style(
 			'dap-admin',
-			DAP_PLUGIN_URL . 'admin/css/admin.css',
+			DAP_PLUGIN_URL . 'static/admin/css/admin.css',
 			[],
 			DAP_VERSION
 		);
 
 		wp_enqueue_script(
 			'dap-admin',
-			DAP_PLUGIN_URL . 'admin/js/admin.js',
+			DAP_PLUGIN_URL . 'static/admin/js/admin.js',
 			[ 'jquery' ],
 			DAP_VERSION,
 			true
@@ -116,21 +116,21 @@ class Admin {
 		if ( ! current_user_can( self::CAP_MANAGE ) ) {
 			wp_die( esc_html__( 'Insufficient permissions.', 'dot-agents-press' ) );
 		}
-		require DAP_PLUGIN_DIR . 'admin/views/agents-list.php';
+		require DAP_PLUGIN_DIR . 'views/agents-list.php';
 	}
 
 	public function page_agent_edit(): void {
 		if ( ! current_user_can( self::CAP_MANAGE ) ) {
 			wp_die( esc_html__( 'Insufficient permissions.', 'dot-agents-press' ) );
 		}
-		require DAP_PLUGIN_DIR . 'admin/views/agent-edit.php';
+		require DAP_PLUGIN_DIR . 'views/agent-edit.php';
 	}
 
 	public function page_settings(): void {
 		if ( ! current_user_can( self::CAP_MANAGE ) ) {
 			wp_die( esc_html__( 'Insufficient permissions.', 'dot-agents-press' ) );
 		}
-		require DAP_PLUGIN_DIR . 'admin/views/settings.php';
+		require DAP_PLUGIN_DIR . 'views/settings.php';
 	}
 
 	// -------------------------------------------------------------------------
