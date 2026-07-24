@@ -104,7 +104,7 @@ class AgentsProtocol {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Discover an agent by slug from .agents/agents/{slug}/agent.md.
+	 * Discover an agent by slug from .agents/agents/{slug}/AGENT.md or agent.md.
 	 *
 	 * Returns an object with:
 	 *   - slug, name, description
@@ -116,9 +116,21 @@ class AgentsProtocol {
 	 * @return object|null Agent data or null if not found.
 	 */
 	public static function discover_agent( string $slug ): ?object {
-		$path = self::get_agents_dir() . "agents/{$slug}/agent.md";
+		$base_dir = self::get_agents_dir() . "agents/{$slug}/";
+		$paths    = [
+			$base_dir . 'AGENT.md',
+			$base_dir . 'agent.md',
+		];
 
-		if ( ! is_readable( $path ) ) {
+		$path = null;
+		foreach ( $paths as $candidate ) {
+			if ( is_readable( $candidate ) ) {
+				$path = $candidate;
+				break;
+			}
+		}
+
+		if ( ! $path ) {
 			return null;
 		}
 
@@ -134,6 +146,7 @@ class AgentsProtocol {
 		$settings = dot_agents_press()->settings();
 
 		return (object) [
+			'id'           => $frontmatter['id'] ?? $slug,
 			'slug'          => $slug,
 			'name'          => $frontmatter['name'] ?? $slug,
 			'description'   => $frontmatter['description'] ?? '',
@@ -173,8 +186,20 @@ class AgentsProtocol {
 				continue;
 			}
 
-			$agent_file = $agent_dir . '/agent.md';
-			if ( ! is_readable( $agent_file ) ) {
+			$agent_files = [
+				$agent_dir . '/AGENT.md',
+				$agent_dir . '/agent.md',
+			];
+
+			$has_agent_file = false;
+			foreach ( $agent_files as $agent_file ) {
+				if ( is_readable( $agent_file ) ) {
+					$has_agent_file = true;
+					break;
+				}
+			}
+
+			if ( ! $has_agent_file ) {
 				continue;
 			}
 

@@ -5,6 +5,8 @@
  * @package Dot_Agents_Press
  */
 
+namespace DotAgentsPress;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -26,7 +28,7 @@ defined( 'ABSPATH' ) || exit;
  * created_at    DATETIME
  * updated_at    DATETIME
  */
-class DAP_Agent {
+class Agent {
 
 	/** @var string Unprefixed table name. */
 	public const TABLE = 'dap_agents';

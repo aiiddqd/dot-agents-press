@@ -17,12 +17,14 @@
  * @package Dot_Agents_Press
  */
 
+namespace DotAgentsPress;
+
 defined( 'ABSPATH' ) || exit;
 
 use DotAgentsPress\AgentsProtocol;
 
 /** Registers the REST route and the [dot_agent] shortcode. */
-class DAP_API {
+class Api {
 
 	private const REST_NAMESPACE = 'dot-agents-press/v1';
 
@@ -243,7 +245,7 @@ class DAP_API {
 		}
 
 		ob_start();
-		require DAP_PLUGIN_DIR . 'public/views/chat-widget.php';
+		require DAP_PLUGIN_DIR . 'views/chat-widget.php';
 		return ob_get_clean() ?: '';
 	}
 
@@ -258,14 +260,14 @@ class DAP_API {
 
 		wp_register_style(
 			'dap-chat',
-			DAP_PLUGIN_URL . 'public/css/chat.css',
+			DAP_PLUGIN_URL . 'static/public/css/chat.css',
 			[],
 			DAP_VERSION
 		);
 
 		wp_register_script(
 			'dap-chat',
-			DAP_PLUGIN_URL . 'public/js/chat.js',
+			DAP_PLUGIN_URL . 'static/public/js/chat.js',
 			[],
 			DAP_VERSION,
 			true
